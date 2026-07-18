@@ -38,9 +38,7 @@ async function loadMessages(conversationId: number) {
     .from("messages")
     .select("*")
     .eq("conversation_id", conversationId)
-    .order("created_at", { ascending: true }); 
-    console.log("Messages:", data);
-console.log("Error:", error);
+    .order("created_at", { ascending: true });
 
   if (!error && data) {
     setMessages(data);
@@ -87,14 +85,8 @@ console.log("Error:", error);
 
             <div className="space-y-4 h-96 overflow-y-auto">
 
-              {messages.map((message) => (   
-            
+              {messages.map((message) => (
     <>
-  {console.log({
-    currentUserId,
-    scoutId: selectedConversation?.scout_id,
-    senderId: message.sender_id,
-  })}
       <div
         key={message.id}
         className={

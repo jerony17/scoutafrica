@@ -1,15 +1,43 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "../lib/supabase";
 
 export default function ScoutDashboard() { 
+    const router = useRouter();
     const [players, setPlayers] = useState<any[]>([]);
+    const [checkingAccess, setCheckingAccess] = useState(true);
 
 useEffect(() => {
-  loadPlayers();
+  checkAccess();
 }, []);
+
+// Defense-in-depth: proxy.ts (project-root route guard) is the primary gate for this
+// route. This client-side check exists in case that layer is ever misconfigured or
+// bypassed (e.g. the Next.js 16 middleware->proxy rename silently disabling it, which is
+// exactly what happened during Sprint 1A testing). This is a UX/routing check only -
+// user_metadata.account_type is client-editable and is never trusted for real data
+// authorization, which is enforced separately by Supabase RLS.
+async function checkAccess() {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    router.replace("/signin");
+    return;
+  }
+
+  if (user.user_metadata?.account_type !== "scout") {
+    router.replace("/");
+    return;
+  }
+
+  setCheckingAccess(false);
+  loadPlayers();
+}
 
 async function loadPlayers() {
   const { data, error } = await supabase
@@ -22,6 +50,15 @@ async function loadPlayers() {
     setPlayers(data);
   }
 }
+
+  if (checkingAccess) {
+    return (
+      <main className="min-h-screen flex items-center justify-center">
+        Checking access...
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-7xl mx-auto">

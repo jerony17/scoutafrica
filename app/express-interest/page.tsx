@@ -23,14 +23,7 @@ export default function ExpressInterestPage() {
   data: { session },
 } = await supabase.auth.getSession();
 
-console.log("SESSION:", session); 
-console.log("ACCESS TOKEN:", session?.access_token);
-
 const user = session?.user;
-
-    console.log("USER:", user);
-console.log("USER ID:", user?.id);
-console.log("SENDER ID:", user?.id);
 
     if (!user) {
       alert("Please sign in.");
@@ -38,8 +31,6 @@ console.log("SENDER ID:", user?.id);
     }
 
     setSending(true);
-
-    console.log("USER ID:", user.id);
 
 const payload = {
   sender_id: user.id,
@@ -49,16 +40,10 @@ const payload = {
   message,
 };
 
-console.log("INSERT PAYLOAD:", payload);
-
 const { data, error } = await supabase
   .from("contact_requests")
   .insert(payload)
   .select();
-
-console.log("INSERT RESULT:", data);
-console.log("INSERT ERROR:", error);
-  
 
     setSending(false);
 

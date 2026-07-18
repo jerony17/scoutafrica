@@ -32,7 +32,7 @@ async function loadPlayer() {
   const { data } = await supabase
     .from("player")
     .select("*")
-    .eq("email", user.email)
+    .eq("user_id", user.id)
     .single();
 
   if (data) {

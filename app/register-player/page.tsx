@@ -44,7 +44,7 @@ if (photo) {
 
   if (uploadError) {
     alert(uploadError.message)
-    
+    return
   }
 
   const { data } = supabase.storage

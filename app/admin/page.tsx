@@ -1,22 +1,47 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "../lib/supabase";
 
 export default function AdminPanel() { 
+  const router = useRouter();
+  const [checkingAccess, setCheckingAccess] = useState(true);
   const [requests, setRequests] = useState<any[]>([]); 
+
   useEffect(() => {
-  loadRequests();
-}, []);
+    checkAccess();
+  }, []);
+
+  // Defense-in-depth: proxy.ts is the primary route guard for this page. This check
+  // exists in case that layer is misconfigured (see Sprint 1A follow-up investigation
+  // - this is exactly what happened, so this check is not optional here). Unlike the
+  // other dashboards, this checks app_metadata.is_admin, which the client cannot edit,
+  // so this check is a real (if secondary) security boundary, not just UX.
+  async function checkAccess() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      router.replace("/signin");
+      return;
+    }
+
+    if (user.app_metadata?.is_admin !== true) {
+      router.replace("/");
+      return;
+    }
+
+    setCheckingAccess(false);
+    loadRequests();
+  }
 
 async function loadRequests() {
   const { data, error } = await supabase
     .from("contact_requests")
     .select("*")
     .order("created_at", { ascending: false });
-
-  console.log("DATA:", data);
-  console.log("ERROR:", error);
 
   if (error) {
     console.error(error);
@@ -25,6 +50,15 @@ async function loadRequests() {
 
   setRequests(data || []);
 }
+
+  if (checkingAccess) {
+    return (
+      <main className="min-h-screen flex items-center justify-center">
+        Checking access...
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-gray-50 p-8">
 

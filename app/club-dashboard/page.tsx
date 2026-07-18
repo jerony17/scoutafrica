@@ -1,4 +1,46 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { supabase } from "../lib/supabase";
+
 export default function ClubDashboard() {
+  const router = useRouter();
+  const [checkingAccess, setCheckingAccess] = useState(true);
+
+  useEffect(() => {
+    checkAccess();
+  }, []);
+
+  // Defense-in-depth: proxy.ts is the primary route guard for this page. This check
+  // exists in case that layer is misconfigured (see Sprint 1A follow-up investigation).
+  // user_metadata.account_type is a UX/routing check only, never a security boundary.
+  async function checkAccess() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      router.replace("/signin");
+      return;
+    }
+
+    if (user.user_metadata?.account_type !== "club") {
+      router.replace("/");
+      return;
+    }
+
+    setCheckingAccess(false);
+  }
+
+  if (checkingAccess) {
+    return (
+      <main className="min-h-screen flex items-center justify-center">
+        Checking access...
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-7xl mx-auto">

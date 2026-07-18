@@ -26,11 +26,10 @@ const [uploadingCover, setUploadingCover] = useState(false);
     const { data } = await supabase
       .from("player")
       .select("*")
-      .eq("email", user.email)
+      .eq("user_id", user.id)
       .single();
 
-    if (data) { 
-    console.log("Loaded player:", data);    
+    if (data) {
       setPlayer(data);
     }
   } 
@@ -67,7 +66,7 @@ async function uploadProfilePhoto() {
   const fileName = `profile-${player.id}-${Date.now()}`;
 
   const { error: uploadError } = await supabase.storage
-    .from("cover-photos")
+    .from("profile-photos")
     .upload(fileName, selectedProfilePhoto, {
       upsert: true,
     });
@@ -78,7 +77,7 @@ async function uploadProfilePhoto() {
   }
 
   const { data } = supabase.storage
-    .from("cover-photos")
+    .from("profile-photos")
     .getPublicUrl(fileName);
 
   const imageUrl = data.publicUrl;
@@ -86,21 +85,21 @@ async function uploadProfilePhoto() {
   const { error: updateError } = await supabase
   .from("player")
   .update({
-  cover_photo_url: imageUrl,
+  photo_url: imageUrl,
 })
   .eq("id", player.id);
 
 if (updateError) {
-  console.log(updateError);
+  console.error(updateError);
   alert(JSON.stringify(updateError));
   return;
 }
 
 setPlayer({
   ...player,
-  cover_photo_url: imageUrl,
+  photo_url: imageUrl,
 });
-alert("Cover photo uploaded!");
+alert("Profile photo uploaded!");
 }
 
 async function uploadCoverPhoto() {
@@ -109,19 +108,19 @@ async function uploadCoverPhoto() {
   const fileName = `cover-${player.id}-${Date.now()}`;
 
   const { error: uploadError } = await supabase.storage
-    .from("profile-photos")
+    .from("cover-photos")
     .upload(fileName, selectedCoverPhoto, {
       upsert: true,
     });
 
   if (uploadError) {
-  console.log(uploadError);
+  console.error(uploadError);
   alert(JSON.stringify(uploadError));
   return;
 }
 
   const { data } = supabase.storage
-    .from("profile-photos")
+    .from("cover-photos")
     .getPublicUrl(fileName);
 
   const imageUrl = data.publicUrl;
@@ -134,12 +133,10 @@ async function uploadCoverPhoto() {
   .eq("id", player.id);
 
 if (updateError) {
-  console.log(updateError);
+  console.error(updateError);
   alert(JSON.stringify(updateError));
   return;
 }
-
-
 
   setPlayer({
   ...player,
@@ -200,6 +197,36 @@ if (updateError) {
 
 </div>
 
+  </div>
+</div>
+
+<div className="mb-8 flex items-center gap-6">
+  <img
+    src={
+      player.photo_url ||
+      "https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=400"
+    }
+    alt="Profile"
+    className="h-28 w-28 rounded-full object-cover bg-gray-300 border-4 border-white shadow"
+  />
+
+  <div className="flex items-center gap-2">
+    <input
+      type="file"
+      accept="image/*"
+      onChange={(e) =>
+        setSelectedProfilePhoto(
+          e.target.files ? e.target.files[0] : null
+        )
+      }
+    />
+
+    <button
+      onClick={uploadProfilePhoto}
+      className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
+    >
+      Upload Profile Photo
+    </button>
   </div>
 </div>
 

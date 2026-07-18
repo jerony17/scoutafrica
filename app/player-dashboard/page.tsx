@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "../lib/supabase";
 
 export default function PlayerDashboard() {
+  const router = useRouter();
   const [player, setPlayer] = useState<any>(null);
 
 const [matches, setMatches] = useState(0);
@@ -21,13 +23,25 @@ const [profileComplete, setProfileComplete] = useState(20);
       data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user) return;
+    // Defense-in-depth: proxy.ts is the primary route guard for this page. This check
+    // exists in case that layer is misconfigured (see Sprint 1A follow-up investigation).
+    // user_metadata.account_type is a UX/routing check only, never a security boundary.
+    if (!user) {
+      router.replace("/signin");
+      return;
+    }
 
-    // Find player profile using email
+    if (user.user_metadata?.account_type !== "player") {
+      router.replace("/");
+      return;
+    }
+
+    // Find player profile using their auth user_id (not email - email can change
+    // and several player rows have no email at all)
     const { data } = await supabase
       .from("player")
       .select("*")
-      .eq("email", user.email)
+      .eq("user_id", user.id)
       .single();
 
     if (data) {

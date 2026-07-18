@@ -47,8 +47,7 @@ export default function FindPlayers() {
 
     if (error) {
       console.error(error);
-    } else { 
-      console.log(data);
+    } else {
       setPlayers(data || []);
     }
 
