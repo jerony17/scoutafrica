@@ -1,0 +1,194 @@
+"use client";
+
+import { use, useEffect, useState } from "react";
+import { supabase } from "../../lib/supabase";
+
+export default function PlayerProfile({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
+  const { slug } = use(params);
+  const [player, setPlayer] = useState<any>(null);
+
+  useEffect(() => {
+    fetchPlayer();
+  }, []);
+
+  async function fetchPlayer() {
+    const { data } = await supabase
+      .from("player")
+      .select("*")
+      .eq("slug", slug)
+      .single();
+
+    setPlayer(data);
+  }
+
+  if (!player) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-2xl">
+        Loading...
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-100">
+
+      <img
+        src={player.photo_url}
+        className="w-full h-80 object-cover"
+      />
+
+      <div className="max-w-6xl mx-auto -mt-24">
+
+        <div className="bg-white rounded-3xl shadow-xl p-10">
+
+          <div className="flex gap-8">
+
+            <img
+              src={player.photo_url}
+              className="w-56 h-56 rounded-full object-cover border-8 border-white shadow-lg"
+            />
+
+            <div>
+
+              <div className="flex items-center gap-3">
+
+  <h1 className="text-5xl font-bold">
+    {player.full_name}
+  </h1>
+
+  {player.verified && (
+    <div className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm">
+      ✔ Verified
+    </div>
+  )}
+
+</div>
+
+              <p className="text-xl text-gray-500 mt-2">
+                {player.position}
+              </p>
+
+       <div className="grid grid-cols-2 md:grid-cols-3 gap-5 mt-8">
+
+  <div className="bg-gray-100 rounded-xl p-4">
+    <p className="text-gray-500 text-sm">Age</p>
+    <h3 className="text-2xl font-bold">{player.age}</h3>
+  </div>
+
+  <div className="bg-gray-100 rounded-xl p-4">
+    <p className="text-gray-500 text-sm">Nationality</p>
+    <h3 className="text-xl font-bold">{player.nationality}</h3>
+  </div>
+
+  <div className="bg-gray-100 rounded-xl p-4">
+    <p className="text-gray-500 text-sm">Club</p>
+    <h3 className="text-xl font-bold">{player.current_club}</h3>
+  </div>
+
+  <div className="bg-gray-100 rounded-xl p-4">
+    <p className="text-gray-500 text-sm">Position</p>
+    <h3 className="text-xl font-bold">{player.position}</h3>
+  </div>
+
+  <div className="bg-gray-100 rounded-xl p-4">
+    <p className="text-gray-500 text-sm">Height</p>
+    <h3 className="text-xl font-bold">{player.height} cm</h3>
+  </div>
+
+  <div className="bg-gray-100 rounded-xl p-4">
+    <p className="text-gray-500 text-sm">Weight</p>
+    <h3 className="text-xl font-bold">{player.weight} kg</h3>
+  </div>
+
+  <div className="bg-gray-100 rounded-xl p-4">
+    <p className="text-gray-500 text-sm">Preferred Foot</p>
+    <h3 className="text-xl font-bold">{player.preferred_foot}</h3>
+  </div>
+
+  <div className="bg-gray-100 rounded-xl p-4">
+    <p className="text-gray-500 text-sm">Date of Birth</p>
+    <h3 className="text-lg font-bold">{player.date_of_birth}</h3>
+  </div>
+
+  <div className="bg-gray-100 rounded-xl p-4">
+    <p className="text-gray-500 text-sm">Contract Until</p>
+    <h3 className="text-lg font-bold">{player.contract_expiry}</h3>
+  </div>
+
+</div>       
+
+
+<div className="mt-8">
+  <h2 className="text-2xl font-bold mb-4">
+    Season Statistics
+  </h2>
+
+  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+
+    <div className="bg-green-100 rounded-xl p-4 text-center">
+      <p className="text-gray-500 text-sm">Matches</p>
+      <h3 className="text-3xl font-bold">{player.matches ?? 0}</h3>
+    </div>
+
+    <div className="bg-blue-100 rounded-xl p-4 text-center">
+      <p className="text-gray-500 text-sm">Goals</p>
+      <h3 className="text-3xl font-bold">{player.goals ?? 0}</h3>
+    </div>
+
+    <div className="bg-yellow-100 rounded-xl p-4 text-center">
+      <p className="text-gray-500 text-sm">Assists</p>
+      <h3 className="text-3xl font-bold">{player.assists ?? 0}</h3>
+    </div>
+
+    <div className="bg-purple-100 rounded-xl p-4 text-center">
+      <p className="text-gray-500 text-sm">Minutes</p>
+      <h3 className="text-3xl font-bold">{player.minutes_played ?? 0}</h3>
+    </div>
+
+    <div className="bg-cyan-100 rounded-xl p-4 text-center">
+      <p className="text-gray-500 text-sm">Clean Sheets</p>
+      <h3 className="text-3xl font-bold">{player.clean_sheets ?? 0}</h3>
+    </div>
+
+    <div className="bg-orange-100 rounded-xl p-4 text-center">
+      <p className="text-gray-500 text-sm">Yellow Cards</p>
+      <h3 className="text-3xl font-bold">{player.yellow_cards ?? 0}</h3>
+    </div>
+
+    <div className="bg-red-100 rounded-xl p-4 text-center">
+      <p className="text-gray-500 text-sm">Red Cards</p>
+      <h3 className="text-3xl font-bold">{player.red_card ?? 0}</h3>
+    </div>
+
+  </div>
+</div>
+
+
+
+<div className="mt-8">
+
+  <h2 className="text-2xl font-bold mb-3">
+    Biography
+  </h2>
+
+  <p className="text-gray-700 leading-8">
+    {player.bio}
+  </p>
+
+</div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+  );
+}
