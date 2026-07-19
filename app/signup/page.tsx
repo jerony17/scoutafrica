@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { supabase } from "../lib/supabase";
 
 export default function Signup() {
@@ -9,10 +10,16 @@ export default function Signup() {
   const [country, setCountry] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [loading, setLoading] = useState(false);
 
   async function handleSignup(e: any) {
     e.preventDefault();
+
+    if (!agreedToTerms) {
+      alert("Please agree to the Terms of Service and Privacy Policy to continue.");
+      return;
+    }
 
     setLoading(true);
 
@@ -38,8 +45,6 @@ export default function Signup() {
     alert(
       "Account created successfully! Please check your email to verify your account."
     );
-
-    console.log(data);
   }
 
   return (
@@ -103,10 +108,31 @@ export default function Signup() {
           onChange={(e)=>setPassword(e.target.value)}
         />
 
+        <label className="flex items-start gap-2 text-sm text-gray-600 mb-6">
+          <input
+            type="checkbox"
+            checked={agreedToTerms}
+            onChange={(e) => setAgreedToTerms(e.target.checked)}
+            className="mt-1"
+          />
+          <span>
+            I agree to the{" "}
+            <Link href="/terms-of-service" target="_blank" className="text-green-700 underline">
+              Terms of Service
+            </Link>{" "}
+            and{" "}
+            <Link href="/privacy-policy" target="_blank" className="text-green-700 underline">
+              Privacy Policy
+            </Link>
+            . If I am under 18, I confirm a parent or guardian has reviewed
+            and consented to these terms on my behalf.
+          </span>
+        </label>
+
         <button
           type="submit"
-          disabled={loading}
-          className="w-full bg-green-600 text-white p-3 rounded-xl hover:bg-green-700"
+          disabled={loading || !agreedToTerms}
+          className="w-full bg-green-600 text-white p-3 rounded-xl hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? "Creating..." : "Create Account"}
         </button>

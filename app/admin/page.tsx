@@ -68,7 +68,7 @@ async function loadRequests() {
           Admin Panel
         </h1>
 
-        <div className="grid md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
 
           <div className="bg-white p-6 rounded-2xl shadow-md">
             <h2 className="text-4xl font-bold text-green-600">12,450</h2>
@@ -142,6 +142,12 @@ async function loadRequests() {
   </h2>
 
   <div className="space-y-4">
+
+    {requests.length === 0 && (
+      <p className="text-gray-500">
+        No contact requests to show for this account.
+      </p>
+    )}
 
     {requests.map((request) => (
 

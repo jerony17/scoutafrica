@@ -7,11 +7,14 @@ import { supabase } from "../lib/supabase";
 export default function PlayerDashboard() {
   const router = useRouter();
   const [player, setPlayer] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
 const [matches, setMatches] = useState(0);
 const [goals, setGoals] = useState(0);
 const [assists, setAssists] = useState(0);
 const [profileComplete, setProfileComplete] = useState(20);
+const [missingFields, setMissingFields] = useState<string[]>([]);
 
   useEffect(() => {
     loadPlayer();
@@ -38,32 +41,43 @@ const [profileComplete, setProfileComplete] = useState(20);
 
     // Find player profile using their auth user_id (not email - email can change
     // and several player rows have no email at all)
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("player")
       .select("*")
       .eq("user_id", user.id)
-      .single();
+      .maybeSingle();
+
+    if (error) {
+      setLoadError(true);
+      setLoading(false);
+      return;
+    }
 
     if (data) {
     setPlayer(data);
     loadPlayerStats(data.id);
 
-    let score = 0;
+    const fields: { key: string; label: string }[] = [
+      { key: "full_name", label: "Full name" },
+      { key: "photo_url", label: "Profile photo" },
+      { key: "position", label: "Position" },
+      { key: "current_club", label: "Current club" },
+      { key: "nationality", label: "Nationality" },
+      { key: "age", label: "Age" },
+      { key: "height", label: "Height" },
+      { key: "weight", label: "Weight" },
+      { key: "bio", label: "Bio" },
+      { key: "preferred_foot", label: "Preferred foot" },
+    ];
 
-    if (data.full_name) score += 10;
-    if (data.photo_url) score += 10;
-    if (data.position) score += 10;
-    if (data.current_club) score += 10;
-    if (data.nationality) score += 10;
-    if (data.age) score += 10;
-    if (data.height) score += 10;
-    if (data.weight) score += 10;
-    if (data.bio) score += 10;
-    if (data.preferred_foot) score += 10;
+    const missing = fields.filter((f) => !data[f.key]).map((f) => f.label);
+    const score = (fields.length - missing.length) * (100 / fields.length);
 
-    setProfileComplete(score);
+    setMissingFields(missing);
+    setProfileComplete(Math.round(score));
 }
 
+    setLoading(false);
   }
 async function loadPlayerStats(playerId: number) {
   const { data, error } = await supabase
@@ -90,10 +104,46 @@ async function loadPlayerStats(playerId: number) {
   setAssists(totalAssists);
 }
 
-  if (!player) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center text-2xl">
         Loading Dashboard...
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center text-center px-4 gap-4">
+        <p className="text-xl text-red-600">
+          Something went wrong loading your dashboard.
+        </p>
+        <button
+          onClick={() => {
+            setLoading(true);
+            setLoadError(false);
+            loadPlayer();
+          }}
+          className="bg-green-600 text-white px-6 py-3 rounded-lg"
+        >
+          Try Again
+        </button>
+      </div>
+    );
+  }
+
+  if (!player) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center text-center px-4 gap-4">
+        <p className="text-xl">
+          You haven't completed your player profile yet.
+        </p>
+        <a
+          href="/register-player"
+          className="bg-green-600 text-white px-6 py-3 rounded-lg"
+        >
+          Complete Registration
+        </a>
       </div>
     );
   }
@@ -111,8 +161,12 @@ async function loadPlayerStats(playerId: number) {
           <div className="flex items-center gap-6">
 
             <img
-              src={player.photo_url}
-              className="w-28 h-28 rounded-full object-cover"
+              src={
+                player.photo_url ||
+                "https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=400"
+              }
+              alt={player.full_name}
+              className="w-28 h-28 rounded-full object-cover bg-gray-200"
             />
 
             <div>
@@ -148,7 +202,7 @@ async function loadPlayerStats(playerId: number) {
 
         </div>
 
-        <div className="grid grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
 
           <div className="bg-white p-6 rounded-xl shadow">
             <h3 className="text-3xl font-bold text-green-600">
@@ -178,6 +232,33 @@ async function loadPlayerStats(playerId: number) {
             <p>Profile Complete</p>
           </div>
 
+        </div>
+
+        <div className="bg-white p-6 rounded-xl shadow mt-6">
+          <div className="flex justify-between items-center mb-2">
+            <h3 className="font-bold text-lg">Profile Completion</h3>
+            <span className="text-green-700 font-semibold">
+              {profileComplete}%
+            </span>
+          </div>
+
+          <div className="w-full bg-gray-200 rounded-full h-3">
+            <div
+              className="bg-green-600 h-3 rounded-full transition-all"
+              style={{ width: `${profileComplete}%` }}
+            />
+          </div>
+
+          {missingFields.length > 0 ? (
+            <p className="text-sm text-gray-500 mt-3">
+              Add {missingFields.join(", ")} to complete your profile and
+              improve your visibility to scouts.
+            </p>
+          ) : (
+            <p className="text-sm text-green-600 mt-3">
+              Your profile is complete!
+            </p>
+          )}
         </div>
 
       </div>

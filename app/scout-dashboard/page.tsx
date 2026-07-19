@@ -8,6 +8,7 @@ import { supabase } from "../lib/supabase";
 export default function ScoutDashboard() { 
     const router = useRouter();
     const [players, setPlayers] = useState<any[]>([]);
+    const [playersLoading, setPlayersLoading] = useState(true);
     const [checkingAccess, setCheckingAccess] = useState(true);
 
 useEffect(() => {
@@ -49,6 +50,7 @@ async function loadPlayers() {
   if (!error && data) {
     setPlayers(data);
   }
+  setPlayersLoading(false);
 }
 
   if (checkingAccess) {
@@ -80,7 +82,7 @@ async function loadPlayers() {
 
 </div>
 
-        <div className="grid md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
 
           <div className="bg-white p-6 rounded-2xl shadow-lg hover:shadow-xl transition">
   <h2 className="text-4xl font-bold text-green-600">356</h2>
@@ -119,6 +121,16 @@ async function loadPlayers() {
 </p>
 
     <div className="grid md:grid-cols-2 gap-5">
+
+  {playersLoading && (
+    <p className="text-gray-500 col-span-2">Loading recent players...</p>
+  )}
+
+  {!playersLoading && players.length === 0 && (
+    <p className="text-gray-500 col-span-2">
+      No players have registered yet. Check back soon.
+    </p>
+  )}
 
   {players.map((player) => (
 
@@ -197,15 +209,23 @@ async function loadPlayers() {
   <p className="font-semibold text-lg">Watchlist</p>
 </Link>
 
-    <button className="bg-red-500 hover:bg-red-600 text-white rounded-2xl p-6 shadow-lg transition">
+    <button
+      disabled
+      title="Coming soon"
+      className="bg-red-300 text-white rounded-2xl p-6 shadow-lg text-center cursor-not-allowed"
+    >
       <div className="text-4xl mb-2">❤️</div>
       <p className="font-semibold text-lg">Favorites</p>
+      <p className="text-xs mt-1 opacity-80">Coming soon</p>
     </button>
 
-    <button className="bg-blue-500 hover:bg-blue-600 text-white rounded-2xl p-6 shadow-lg transition">
+    <Link
+      href="/messages"
+      className="bg-blue-500 hover:bg-blue-600 text-white rounded-2xl p-6 shadow-lg transition text-center"
+    >
       <div className="text-4xl mb-2">📨</div>
       <p className="font-semibold text-lg">Messages</p>
-    </button>
+    </Link>
 
   </div>
 </div>

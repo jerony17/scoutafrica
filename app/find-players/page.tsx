@@ -33,6 +33,9 @@ export default function FindPlayers() {
   const [page, setPage] = useState(1);
   const playersPerPage = 12;
   const [searchTerm, setSearchTerm] = useState("");
+  const [positionFilter, setPositionFilter] = useState("Position");
+  const [nationFilter, setNationFilter] = useState("Nation");
+  const [ageFilter, setAgeFilter] = useState("Age");
 
   useEffect(() => {
     loadPlayers();
@@ -57,6 +60,34 @@ export default function FindPlayers() {
   if (loading) {
     return <div className="p-10">Loading players...</div>;
   }
+
+  const filteredPlayers = players.filter((player) => {
+    const search = searchTerm.toLowerCase();
+
+    const matchesSearch =
+      !search ||
+      player.full_name?.toLowerCase().includes(search) ||
+      player.scoutafrica_id?.toLowerCase().includes(search);
+
+    const matchesPosition =
+      positionFilter === "Position" || player.position === positionFilter;
+
+    const matchesNation =
+      nationFilter === "Nation" || player.nationality === nationFilter;
+
+    const matchesAge = (() => {
+      if (ageFilter === "Age") return true;
+      const age = player.age;
+      if (age == null) return false;
+      if (ageFilter === "Under 18") return age < 18;
+      if (ageFilter === "18–21") return age >= 18 && age <= 21;
+      if (ageFilter === "22–25") return age >= 22 && age <= 25;
+      if (ageFilter === "26+") return age >= 26;
+      return true;
+    })();
+
+    return matchesSearch && matchesPosition && matchesNation && matchesAge;
+  });
 
   return (
     <main className="max-w-6xl mx-auto p-8">
@@ -91,7 +122,11 @@ export default function FindPlayers() {
   {/* Filters */}
   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
-    <select className="rounded-xl border border-gray-300 p-4 shadow-sm focus:ring-2 focus:ring-green-600">
+    <select
+      value={positionFilter}
+      onChange={(e) => setPositionFilter(e.target.value)}
+      className="rounded-xl border border-gray-300 p-4 shadow-sm focus:ring-2 focus:ring-green-600"
+    >
       <option>Position</option>
       <option>Goalkeeper</option>
       <option>Defender</option>
@@ -99,7 +134,11 @@ export default function FindPlayers() {
       <option>Forward</option>
     </select>
 
-    <select className="rounded-xl border border-gray-300 p-4 shadow-sm focus:ring-2 focus:ring-green-600">
+    <select
+      value={nationFilter}
+      onChange={(e) => setNationFilter(e.target.value)}
+      className="rounded-xl border border-gray-300 p-4 shadow-sm focus:ring-2 focus:ring-green-600"
+    >
       <option>Nation</option>
       <option>Nigeria</option>
       <option>Japan</option>
@@ -108,7 +147,11 @@ export default function FindPlayers() {
       <option>Cameroon</option>
     </select>
 
-    <select className="rounded-xl border border-gray-300 p-4 shadow-sm focus:ring-2 focus:ring-green-600">
+    <select
+      value={ageFilter}
+      onChange={(e) => setAgeFilter(e.target.value)}
+      className="rounded-xl border border-gray-300 p-4 shadow-sm focus:ring-2 focus:ring-green-600"
+    >
       <option>Age</option>
       <option>Under 18</option>
       <option>18–21</option>
@@ -118,18 +161,32 @@ export default function FindPlayers() {
 
   </div>
 
-</div>
-      <div className="grid md:grid-cols-3 gap-6">
-        {players
-  .filter((player) => {
-    const search = searchTerm.toLowerCase();
+  {(positionFilter !== "Position" ||
+    nationFilter !== "Nation" ||
+    ageFilter !== "Age" ||
+    searchTerm) && (
+    <button
+      onClick={() => {
+        setPositionFilter("Position");
+        setNationFilter("Nation");
+        setAgeFilter("Age");
+        setSearchTerm("");
+      }}
+      className="mt-4 text-sm text-green-700 underline"
+    >
+      Clear filters
+    </button>
+  )}
 
-    return (
-      player.full_name?.toLowerCase().includes(search) ||
-      player.scoutafrica_id?.toLowerCase().includes(search)
-    );
-  })
-  .map((player) => (
+</div>
+      {filteredPlayers.length === 0 && (
+        <p className="text-center text-gray-500 py-16">
+          No players match your filters. Try adjusting or clearing them.
+        </p>
+      )}
+
+      <div className="grid md:grid-cols-3 gap-6">
+        {filteredPlayers.map((player) => (
           <div
   key={player.id}
   className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition duration-300"

@@ -1,5 +1,4 @@
-import Link from "next/link"; 
-import { supabase } from "./lib/supabase";
+import Link from "next/link";
 export default function Home() {
   return (
     <main className="min-h-screen bg-gradient-to-b from-green-50 to-white">
@@ -10,22 +9,18 @@ export default function Home() {
           ScoutAfrica
         </h1>
 
-        <div className="hidden md:flex gap-6 text-gray-700">
-          <a href="#">Home</a>
-          <a href="#">About</a>
-          <a href="#">Opportunities</a>
-          <a href="#">Learning Hub</a>
-          <a href="#">Contact</a>
-        </div>
-
         <div className="flex gap-3">
-          <button className="px-4 py-2 border border-green-600 rounded-lg text-green-700">
-            Login
-          </button>
+          <Link href="/signin">
+            <button className="px-4 py-2 border border-green-600 rounded-lg text-green-700">
+              Login
+            </button>
+          </Link>
 
-          <button className="px-4 py-2 bg-green-600 text-white rounded-lg">
-            Register
-          </button>
+          <Link href="/signup">
+            <button className="px-4 py-2 bg-green-600 text-white rounded-lg">
+              Register
+            </button>
+          </Link>
         </div>
       </nav>
 
@@ -51,9 +46,11 @@ export default function Home() {
     </button>
   </Link>
 
-  <button className="border border-green-600 text-green-600 px-6 py-3 rounded-lg">
-    Join as Organization
-  </button>
+  <Link href="/signup">
+    <button className="border border-green-600 text-green-600 px-6 py-3 rounded-lg">
+      Join as Organization
+    </button>
+  </Link>
 
 </div>
       </section>
@@ -97,6 +94,18 @@ export default function Home() {
     </div>
 
   </section>
+
+  <footer className="border-t bg-white py-8 text-center text-sm text-gray-500">
+    <div className="flex justify-center gap-6 mb-2">
+      <Link href="/privacy-policy" className="hover:text-green-700">
+        Privacy Policy
+      </Link>
+      <Link href="/terms-of-service" className="hover:text-green-700">
+        Terms of Service
+      </Link>
+    </div>
+    <p>&copy; {new Date().getFullYear()} ScoutAfrica</p>
+  </footer>
 
 </main> 
   ) ; 

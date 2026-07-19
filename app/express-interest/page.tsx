@@ -35,7 +35,7 @@ const user = session?.user;
 const payload = {
   sender_id: user.id,
   player_id: Number(playerId),
-  sender_type: "scout",
+  sender_type: user.user_metadata?.account_type || "scout",
   request_type: requestType,
   message,
 };
