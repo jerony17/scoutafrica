@@ -1,4 +1,4 @@
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 // Sprint 1A - Security Foundation
@@ -9,6 +9,18 @@ import { NextResponse, type NextRequest } from "next/server";
 // previously middleware.ts/middleware() and that naming is why the route guards
 // below were not actually executing (see Sprint 1A follow-up investigation).
 // Must remain named proxy.ts at the project root, exporting a function named `proxy`.
+//
+// The cookie-handling block below matches Supabase's official current
+// "AI Prompt: Bootstrap Next.js v16 app with Supabase Auth" reference pattern
+// exactly (including the setAll(cookiesToSet, headers) two-argument shape and
+// the header-copying step), rather than a hand-typed reconstruction - an
+// earlier fix here typed cookiesToSet manually but omitted the second
+// `headers` argument the current @supabase/ssr cookie-methods interface
+// expects, which broke contextual type inference and caused the implicit-any
+// build error even after that fix. Deliberately left both parameters
+// untyped here, same as Supabase's own official example, so this always
+// matches whatever @supabase/ssr version is actually installed rather than
+// a type shape guessed from outside the project.
 //
 // IMPORTANT: user_metadata.account_type is set/editable by the signed-in user via the
 // client SDK. It is used below ONLY to redirect a signed-in player/scout/club away from
@@ -41,15 +53,16 @@ export async function proxy(request: NextRequest) {
         getAll() {
           return request.cookies.getAll();
         },
-        setAll(
-          cookiesToSet: { name: string; value: string; options: CookieOptions }[]
-        ) {
+        setAll(cookiesToSet, headers) {
           cookiesToSet.forEach(({ name, value }) => {
             request.cookies.set(name, value);
           });
           response = NextResponse.next({ request });
           cookiesToSet.forEach(({ name, value, options }) => {
             response.cookies.set(name, value, options);
+          });
+          Object.entries(headers).forEach(([key, value]) => {
+            response.headers.set(key, value);
           });
         },
       },
