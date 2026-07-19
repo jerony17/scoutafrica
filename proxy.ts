@@ -10,16 +10,19 @@ import { NextResponse, type NextRequest } from "next/server";
 // below were not actually executing (see Sprint 1A follow-up investigation).
 // Must remain named proxy.ts at the project root, exporting a function named `proxy`.
 //
-// VERSION NOTE: upgraded from @supabase/ssr@0.5.2 to 0.12.3 (see package.json).
-// 0.5.2 had documented broken generic type resolution when paired with newer
-// @supabase/supabase-js versions, which is what caused the earlier
-// implicit-any build errors here - not a problem with the getAll/setAll
-// approach itself. As of 0.10.0, setAll is called with a second `headers`
-// argument carrying cache-control headers generated during token refreshes;
-// these must be copied onto the response or CDNs can cache auth responses
-// incorrectly. cookiesToSet/headers are typed via a plain local interface
-// rather than imported from @supabase/ssr, so this file doesn't depend on
-// that library's generics resolving cleanly to compile - no `any` anywhere.
+// VERSION NOTE: this project is on @supabase/ssr@0.12.3 (upgraded from 0.5.2,
+// which had documented broken generic type resolution when paired with newer
+// @supabase/supabase-js versions - that's what caused the earlier implicit-any
+// build errors, not a problem with the getAll/setAll approach itself).
+//
+// setAll(cookiesToSet, headers) matches Supabase's official current cookie API
+// exactly, including the second `headers` argument (cache-control headers
+// generated during token refreshes, copied onto the response below so CDNs
+// don't cache auth responses incorrectly). cookiesToSet and headers are left
+// untyped here deliberately, matching Supabase's own official reference
+// implementation for Next.js 16 - 0.12.3's generics resolve correctly, so
+// TypeScript infers both parameters' types directly from createServerClient's
+// real signature with no manual annotation needed and no `any` involved.
 //
 // IMPORTANT: user_metadata.account_type is set/editable by the signed-in user via the
 // client SDK. It is used below ONLY to redirect a signed-in player/scout/club away from
@@ -30,21 +33,6 @@ import { NextResponse, type NextRequest } from "next/server";
 // app_metadata, by contrast, can only be written by a service-role/server context, never
 // by the client - so it IS safe to use as a real security boundary. is_admin is stored
 // there for that reason.
-
-interface CookieToSet {
-  name: string;
-  value: string;
-  options?: {
-    domain?: string;
-    path?: string;
-    maxAge?: number;
-    expires?: Date;
-    httpOnly?: boolean;
-    secure?: boolean;
-    sameSite?: boolean | "lax" | "strict" | "none";
-    priority?: "low" | "medium" | "high";
-  };
-}
 
 const PLAYER_ROUTES = ["/player-dashboard"];
 const SCOUT_ROUTES = ["/scout-dashboard"];
@@ -67,7 +55,7 @@ export async function proxy(request: NextRequest) {
         getAll() {
           return request.cookies.getAll();
         },
-        setAll(cookiesToSet: CookieToSet[], headers: Record<string, string>) {
+        setAll(cookiesToSet, headers) {
           cookiesToSet.forEach(({ name, value }) => {
             request.cookies.set(name, value);
           });
