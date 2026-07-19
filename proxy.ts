@@ -10,27 +10,16 @@ import { NextResponse, type NextRequest } from "next/server";
 // below were not actually executing (see Sprint 1A follow-up investigation).
 // Must remain named proxy.ts at the project root, exporting a function named `proxy`.
 //
-// VERSION NOTE / KNOWN BUG: this project is pinned to @supabase/ssr@0.5.2 (see
-// package.json - the "^0.5.2" specifier only floats patch versions under npm's
-// 0.x semver rules, so this has been stuck on an old patch line since Sprint 1A).
-// @supabase/ssr@0.5.2 has documented broken generic type resolution when paired
-// with newer @supabase/supabase-js versions (see supabase/supabase-js#1738),
-// which cascades into contextual typing failures elsewhere in the same
-// createServerClient call - including cookiesToSet here - even when the
-// underlying types (CookieMethodsServer etc.) do exist in the shipped .d.ts
-// files. Named imports and mechanical Parameters<> extraction off
-// createServerClient both fail for the same underlying reason.
-//
-// RECOMMENDED REAL FIX: upgrade @supabase/ssr in package.json past this pinned
-// patch line (`npm view @supabase/ssr versions` locally, then update the
-// version and reinstall) - this works around a real package bug, not a typing
-// puzzle solvable from userland code alone.
-//
-// Until that upgrade happens, the type below is a plain, self-contained
-// interface based on the standard Set-Cookie option fields (matching Next.js's
-// own ResponseCookie shape), NOT derived from @supabase/ssr's own types at all -
-// so it doesn't depend on that library's broken generic resolution to work.
-// No `any` anywhere in it.
+// VERSION NOTE: upgraded from @supabase/ssr@0.5.2 to 0.12.3 (see package.json).
+// 0.5.2 had documented broken generic type resolution when paired with newer
+// @supabase/supabase-js versions, which is what caused the earlier
+// implicit-any build errors here - not a problem with the getAll/setAll
+// approach itself. As of 0.10.0, setAll is called with a second `headers`
+// argument carrying cache-control headers generated during token refreshes;
+// these must be copied onto the response or CDNs can cache auth responses
+// incorrectly. cookiesToSet/headers are typed via a plain local interface
+// rather than imported from @supabase/ssr, so this file doesn't depend on
+// that library's generics resolving cleanly to compile - no `any` anywhere.
 //
 // IMPORTANT: user_metadata.account_type is set/editable by the signed-in user via the
 // client SDK. It is used below ONLY to redirect a signed-in player/scout/club away from
@@ -78,13 +67,16 @@ export async function proxy(request: NextRequest) {
         getAll() {
           return request.cookies.getAll();
         },
-        setAll(cookiesToSet: CookieToSet[]) {
+        setAll(cookiesToSet: CookieToSet[], headers: Record<string, string>) {
           cookiesToSet.forEach(({ name, value }) => {
             request.cookies.set(name, value);
           });
           response = NextResponse.next({ request });
           cookiesToSet.forEach(({ name, value, options }) => {
             response.cookies.set(name, value, options);
+          });
+          Object.entries(headers).forEach(([key, value]) => {
+            response.headers.set(key, value);
           });
         },
       },
