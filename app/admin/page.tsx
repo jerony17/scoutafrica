@@ -7,7 +7,8 @@ import { supabase } from "../lib/supabase";
 export default function AdminPanel() { 
   const router = useRouter();
   const [checkingAccess, setCheckingAccess] = useState(true);
-  const [requests, setRequests] = useState<any[]>([]); 
+  const [requests, setRequests] = useState<any[]>([]);
+  const [totalPlayers, setTotalPlayers] = useState<number | null>(null);
 
   useEffect(() => {
     checkAccess();
@@ -35,7 +36,18 @@ export default function AdminPanel() {
 
     setCheckingAccess(false);
     loadRequests();
+    loadTotalPlayers();
   }
+
+async function loadTotalPlayers() {
+  const { count, error } = await supabase
+    .from("player")
+    .select("*", { count: "exact", head: true });
+
+  if (!error) {
+    setTotalPlayers(count ?? 0);
+  }
+}
 
 async function loadRequests() {
   const { data, error } = await supabase
@@ -71,22 +83,24 @@ async function loadRequests() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
 
           <div className="bg-white p-6 rounded-2xl shadow-md">
-            <h2 className="text-4xl font-bold text-green-600">12,450</h2>
+            <h2 className="text-4xl font-bold text-green-600">
+              {totalPlayers ?? "0"}
+            </h2>
             <p>Total Players</p>
           </div>
 
           <div className="bg-white p-6 rounded-2xl shadow-md">
-            <h2 className="text-4xl font-bold text-green-600">580</h2>
+            <h2 className="text-2xl font-bold text-gray-400">Coming Soon</h2>
             <p>Verified Clubs</p>
           </div>
 
           <div className="bg-white p-6 rounded-2xl shadow-md">
-            <h2 className="text-4xl font-bold text-green-600">320</h2>
+            <h2 className="text-2xl font-bold text-gray-400">Coming Soon</h2>
             <p>Scouts</p>
           </div>
 
           <div className="bg-white p-6 rounded-2xl shadow-md">
-            <h2 className="text-4xl font-bold text-green-600">96%</h2>
+            <h2 className="text-2xl font-bold text-gray-400">Coming Soon</h2>
             <p>Approval Rate</p>
           </div>
 
@@ -98,41 +112,9 @@ async function loadRequests() {
             Pending Approvals
           </h2>
 
-          <div className="space-y-4">
-
-            <div className="border rounded-xl p-4 flex justify-between items-center">
-              <div>
-                <h3 className="font-bold">Jerome Abah</h3>
-                <p>Player Verification Request</p>
-              </div>
-
-              <div className="flex gap-2">
-                <button className="bg-green-600 text-white px-4 py-2 rounded-lg">
-                  Approve
-                </button>
-
-                <button className="bg-red-600 text-white px-4 py-2 rounded-lg">
-                  Reject
-                </button>
-              </div>
-            </div>
-
-            <div className="border rounded-xl p-4 flex justify-between items-center">
-              <div>
-                <h3 className="font-bold">FC Bombonera</h3>
-                <p>Club Verification Request</p>
-              </div>
-
-              <div className="flex gap-2">
-                <button className="bg-green-600 text-white px-4 py-2 rounded-lg">
-                  Approve
-                </button>
-
-                <button className="bg-red-600 text-white px-4 py-2 rounded-lg">
-                  Reject
-                </button>
-              </div>
-            </div>
+          <div className="border border-dashed rounded-xl p-8 text-center text-gray-400">
+            Verification workflow coming soon.
+          </div>
 
           </div>
 <div className="bg-white rounded-2xl shadow-md p-6 mt-8">
@@ -184,8 +166,6 @@ async function loadRequests() {
   </div>
 
 </div>
-
-        </div>
 
       </div>
 

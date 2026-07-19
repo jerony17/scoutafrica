@@ -1,5 +1,21 @@
 import Link from "next/link";
-export default function Home() {
+import { supabase } from "./lib/supabase";
+
+export default async function Home() {
+  const { count: playerCount } = await supabase
+    .from("player")
+    .select("*", { count: "exact", head: true });
+
+  const { data: nationalityRows } = await supabase
+    .from("player")
+    .select("nationality");
+
+  const countryCount = new Set(
+    (nationalityRows || [])
+      .map((r) => r.nationality)
+      .filter((n): n is string => Boolean(n))
+  ).size;
+
   return (
     <main className="min-h-screen bg-gradient-to-b from-green-50 to-white">
 
@@ -64,7 +80,7 @@ export default function Home() {
 
         <div className="p-6 rounded-2xl shadow-md">
           <h2 className="text-4xl font-bold text-green-600">
-            10,000+
+            {playerCount ?? 0}
           </h2>
           <p className="mt-2 text-gray-600">
             Players
@@ -72,8 +88,8 @@ export default function Home() {
         </div>
 
         <div className="p-6 rounded-2xl shadow-md">
-          <h2 className="text-4xl font-bold text-green-600">
-            500+
+          <h2 className="text-2xl font-bold text-gray-400">
+            Coming Soon
           </h2>
           <p className="mt-2 text-gray-600">
             Verified Organizations
@@ -82,7 +98,7 @@ export default function Home() {
 
         <div className="p-6 rounded-2xl shadow-md">
           <h2 className="text-4xl font-bold text-green-600">
-            25+
+            {countryCount}
           </h2>
           <p className="mt-2 text-gray-600">
             African Countries

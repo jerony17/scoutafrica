@@ -55,9 +55,15 @@ export default function PlayerHeader({
               {player.full_name}
             </h1>
 
-            <p className="text-green-600 text-xl font-semibold mt-4">
-              ✔ Verified ScoutAfrica Player
-            </p>
+            {player.verified ? (
+              <p className="text-green-600 text-xl font-semibold mt-4">
+                ✔ Verified ScoutAfrica Player
+              </p>
+            ) : (
+              <p className="text-gray-500 text-xl font-semibold mt-4">
+                Verification Pending
+              </p>
+            )}
 
             <div className="mt-5">
               <p className="text-xl">
@@ -87,7 +93,10 @@ export default function PlayerHeader({
               Contact Player
             </h2>
 
-            <button className="w-full text-left p-3 rounded-lg hover:bg-gray-100 mb-2">
+            <button
+              onClick={() => (window.location.href = "/messages")}
+              className="w-full text-left p-3 rounded-lg hover:bg-gray-100 mb-2"
+            >
               💬 Message Player
             </button>
 
@@ -100,19 +109,25 @@ export default function PlayerHeader({
   📅 Invite to Trial
 </button>
 
-            <button className="w-full text-left p-3 rounded-lg hover:bg-gray-100 mb-2">
-              ⭐ Add to Watchlist
-            </button>
-
-            <button className="w-full text-left p-3 rounded-lg hover:bg-gray-100 mb-2">
-              ❤️ Favorite Player
+            <button
+              disabled
+              title="Coming soon"
+              className="w-full text-left p-3 rounded-lg text-gray-400 cursor-not-allowed mb-2"
+            >
+              ❤️ Favorite Player (Coming Soon)
             </button>
 
             <hr className="my-5" />
 
-            <div className="text-green-700 font-semibold">
-              🛡 100% Verified by ScoutAfrica
-            </div>
+            {player.verified ? (
+              <div className="text-green-700 font-semibold">
+                🛡 100% Verified by ScoutAfrica
+              </div>
+            ) : (
+              <div className="text-gray-500 font-semibold">
+                🛡 Verification Pending
+              </div>
+            )}
 
           </div>
 

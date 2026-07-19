@@ -1,80 +1,25 @@
 export default function TrialsPage() {
   return (
-    <main className="min-h-screen bg-gray-50 p-8">
-      <div className="max-w-6xl mx-auto">
+    <main className="min-h-screen bg-gray-50 p-4 sm:p-8 flex items-center justify-center">
+      <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-md p-8 sm:p-12 text-center">
+        <div className="text-6xl mb-4">🎟️</div>
 
-        <h1 className="text-5xl font-bold text-green-700 mb-8">
-          Trial Invitations
+        <h1 className="text-3xl sm:text-4xl font-bold text-green-700 mb-4">
+          Trial Marketplace - Coming Soon
         </h1>
 
-        <div className="space-y-6">
+        <p className="text-gray-600 max-w-lg mx-auto mb-8">
+          We're building a full trial marketplace where clubs can post open
+          trials and players can apply directly. This feature is coming in an
+          upcoming release.
+        </p>
 
-          <div className="bg-white rounded-2xl shadow-md p-6">
-
-            <h2 className="text-2xl font-bold">
-              FC Bombonera
-            </h2>
-
-            <p className="mt-2">
-              Position: Midfielder
-            </p>
-
-            <p>
-              Location: Gifu, Japan
-            </p>
-
-            <p>
-              Trial Date: July 15, 2026
-            </p>
-
-            <div className="flex gap-4 mt-6">
-
-              <button className="bg-green-600 text-white px-6 py-3 rounded-lg">
-                Accept
-              </button>
-
-              <button className="bg-red-600 text-white px-6 py-3 rounded-lg">
-                Decline
-              </button>
-
-            </div>
-
-          </div>
-
-          <div className="bg-white rounded-2xl shadow-md p-6">
-
-            <h2 className="text-2xl font-bold">
-              Lagos Academy
-            </h2>
-
-            <p className="mt-2">
-              Position: Midfielder
-            </p>
-
-            <p>
-              Location: Lagos, Nigeria
-            </p>
-
-            <p>
-              Trial Date: August 2, 2026
-            </p>
-
-            <div className="flex gap-4 mt-6">
-
-              <button className="bg-green-600 text-white px-6 py-3 rounded-lg">
-                Accept
-              </button>
-
-              <button className="bg-red-600 text-white px-6 py-3 rounded-lg">
-                Decline
-              </button>
-
-            </div>
-
-          </div>
-
-        </div>
-
+        <a
+          href="/find-players"
+          className="inline-block bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl font-semibold"
+        >
+          Browse Players Now
+        </a>
       </div>
     </main>
   );

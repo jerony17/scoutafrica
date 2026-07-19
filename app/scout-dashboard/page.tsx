@@ -10,6 +10,7 @@ export default function ScoutDashboard() {
     const [players, setPlayers] = useState<any[]>([]);
     const [playersLoading, setPlayersLoading] = useState(true);
     const [checkingAccess, setCheckingAccess] = useState(true);
+    const [watchlistCount, setWatchlistCount] = useState<number | null>(null);
 
 useEffect(() => {
   checkAccess();
@@ -38,6 +39,18 @@ async function checkAccess() {
 
   setCheckingAccess(false);
   loadPlayers();
+  loadWatchlistCount(user.id);
+}
+
+async function loadWatchlistCount(scoutId: string) {
+  const { count, error } = await supabase
+    .from("watchlist")
+    .select("*", { count: "exact", head: true })
+    .eq("scout_id", scoutId);
+
+  if (!error) {
+    setWatchlistCount(count ?? 0);
+  }
 }
 
 async function loadPlayers() {
@@ -85,21 +98,23 @@ async function loadPlayers() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
 
           <div className="bg-white p-6 rounded-2xl shadow-lg hover:shadow-xl transition">
-  <h2 className="text-4xl font-bold text-green-600">356</h2>
+  <h2 className="text-2xl font-bold text-gray-400">Coming Soon</h2>
   <p className="text-gray-600 mt-2">Players Viewed</p>
 </div>
 
           <div className="bg-white p-6 rounded-2xl shadow-lg hover:shadow-xl transition">
-  <h2 className="text-4xl font-bold text-green-600">45</h2>
-  <p className="text-gray-600 mt-2">Saved Players</p>
+  <h2 className="text-4xl font-bold text-yellow-500">
+    {watchlistCount ?? "0"}
+  </h2>
+  <p className="text-gray-600 mt-2">⭐ Watchlist</p>
 </div>
 
           <div className="bg-white p-6 rounded-2xl shadow-lg hover:shadow-xl transition">
-  <h2 className="text-4xl font-bold text-yellow-500">18</h2>
-  <p className="text-gray-600 mt-2">⭐ Watchlist</p>
+  <h2 className="text-2xl font-bold text-gray-400">Coming Soon</h2>
+  <p className="text-gray-600 mt-2">❤️ Favorites</p>
 </div>
           <div className="bg-white p-6 rounded-2xl shadow-lg hover:shadow-xl transition">
-  <h2 className="text-4xl font-bold text-green-600">7</h2>
+  <h2 className="text-2xl font-bold text-gray-400">Coming Soon</h2>
   <p className="text-gray-600 mt-2">Active Trials</p>
 </div>
 
@@ -172,15 +187,10 @@ async function loadPlayers() {
   ⭐ ScoutAfrica Featured Players
 </h2>
 
-<p className="text-gray-500 mb-6">
+<p className="text-gray-500 mb-2">
   Carefully selected by the ScoutAfrica team from active subscribed members.
 </p>
-
-<div className="grid md:grid-cols-2 gap-5">
-
-  {/* Featured players will come from Supabase */}
-
-</div>
+<p className="text-gray-400 text-sm mb-6 italic">Coming soon</p>
 
           </div>
 
