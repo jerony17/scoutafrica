@@ -1,4 +1,7 @@
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import {
+  createServerClient,
+  type CookieMethodsServer,
+} from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 // Sprint 1A - Security Foundation
@@ -10,17 +13,28 @@ import { NextResponse, type NextRequest } from "next/server";
 // below were not actually executing (see Sprint 1A follow-up investigation).
 // Must remain named proxy.ts at the project root, exporting a function named `proxy`.
 //
-// VERSION NOTE: this project is on @supabase/ssr@0.5.2. The two-argument
-// setAll(cookiesToSet, headers) shape shown in Supabase's *current* official
-// docs was only added in @supabase/ssr v0.10.0 - using it here would be wrong
-// for this installed version. 0.5.2 is a version where the library's shipped
-// TypeScript types lagged behind its own docs for getAll/setAll (a documented,
-// acknowledged gap - see supabase/ssr GitHub discussion #34842), which is the
-// actual root cause of the implicit-any error, not a mistake in the general
-// getAll/setAll approach itself (confirmed correct per your own deprecation
-// tooltip). Fix: explicitly type cookiesToSet using @supabase/ssr's own
-// exported CookieOptions type for the per-cookie options field, with a
-// single-parameter setAll matching what 0.5.2 actually expects at runtime.
+// VERSION NOTE: this project is on @supabase/ssr@0.5.2. Inspected the package's
+// actual source (createStorageFromOptions in src/cookies.ts) rather than relying
+// on docs: it runtime-feature-detects the cookies config against MULTIPLE
+// possible shapes (`'getAll' in cookies`, `'setAll' in cookies`, etc.), which
+// means the `cookies` option's real type is a UNION - CookieMethodsServer
+// (the current getAll/setAll shape) | CookieMethodsServerDeprecated (the old
+// get/set/remove shape) - kept side by side to support both during the
+// deprecation period your own VS Code tooltip flagged.
+//
+// TypeScript does not reliably push a concrete parameter type into an object
+// literal's methods when the literal is being checked against a UNION of
+// interfaces (a known contextual-typing limitation) - that's the actual
+// reason `cookiesToSet` kept coming back implicitly-any even after typing it
+// directly inside the literal: the object literal itself was ambiguous
+// against the union before TS ever got to checking its properties.
+//
+// Fix: declare the cookies methods object as its own variable with an
+// EXPLICIT type annotation pinned to ONE union member (CookieMethodsServer,
+// exported by @supabase/ssr itself), before passing it into
+// createServerClient. This removes the union ambiguity entirely, so
+// TypeScript infers setAll's parameter type correctly from that interface
+// with no hand-typed shape guessed on my end.
 //
 // IMPORTANT: user_metadata.account_type is set/editable by the signed-in user via the
 // client SDK. It is used below ONLY to redirect a signed-in player/scout/club away from
@@ -45,27 +59,25 @@ function matches(path: string, routes: string[]) {
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
 
+  const cookieMethods: CookieMethodsServer = {
+    getAll() {
+      return request.cookies.getAll();
+    },
+    setAll(cookiesToSet) {
+      cookiesToSet.forEach(({ name, value }) => {
+        request.cookies.set(name, value);
+      });
+      response = NextResponse.next({ request });
+      cookiesToSet.forEach(({ name, value, options }) => {
+        response.cookies.set(name, value, options);
+      });
+    },
+  };
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(
-          cookiesToSet: { name: string; value: string; options: CookieOptions }[]
-        ) {
-          cookiesToSet.forEach(({ name, value }) => {
-            request.cookies.set(name, value);
-          });
-          response = NextResponse.next({ request });
-          cookiesToSet.forEach(({ name, value, options }) => {
-            response.cookies.set(name, value, options);
-          });
-        },
-      },
-    }
+    { cookies: cookieMethods }
   );
 
   const path = request.nextUrl.pathname;
