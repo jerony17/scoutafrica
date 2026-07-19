@@ -10,23 +10,27 @@ import { NextResponse, type NextRequest } from "next/server";
 // below were not actually executing (see Sprint 1A follow-up investigation).
 // Must remain named proxy.ts at the project root, exporting a function named `proxy`.
 //
-// VERSION NOTE: this project is on @supabase/ssr@0.5.2. Two prior attempts here
-// guessed at named type exports (CookieOptions, CookieMethodsServer) that don't
-// resolve cleanly in this version - confirmed by directly checking the installed
-// package. Rather than guess a third name, the type below is derived MECHANICALLY
-// from createServerClient's own real signature via TypeScript's Parameters<>
-// utility, so it is correct for whatever is actually installed, regardless of
-// what any internal type is named or whether it's separately exported at all.
+// VERSION NOTE / KNOWN BUG: this project is pinned to @supabase/ssr@0.5.2 (see
+// package.json - the "^0.5.2" specifier only floats patch versions under npm's
+// 0.x semver rules, so this has been stuck on an old patch line since Sprint 1A).
+// @supabase/ssr@0.5.2 has documented broken generic type resolution when paired
+// with newer @supabase/supabase-js versions (see supabase/supabase-js#1738),
+// which cascades into contextual typing failures elsewhere in the same
+// createServerClient call - including cookiesToSet here - even when the
+// underlying types (CookieMethodsServer etc.) do exist in the shipped .d.ts
+// files. Named imports and mechanical Parameters<> extraction off
+// createServerClient both fail for the same underlying reason.
 //
-// Background on why this was needed: @supabase/ssr's `cookies` config accepts a
-// union of shapes (current getAll/setAll vs. the deprecated get/set/remove style,
-// kept side by side during the migration your own VS Code tooltip flagged).
-// TypeScript does not reliably push contextual parameter types into an object
-// literal's methods when the literal is checked against a union of interfaces -
-// that's why annotating cookiesToSet directly inside the inline literal never
-// actually fixed anything. Extract<> below narrows that union down to
-// specifically the member that has a setAll method, using structural matching
-// rather than a guessed name - no `any` anywhere in this.
+// RECOMMENDED REAL FIX: upgrade @supabase/ssr in package.json past this pinned
+// patch line (`npm view @supabase/ssr versions` locally, then update the
+// version and reinstall) - this works around a real package bug, not a typing
+// puzzle solvable from userland code alone.
+//
+// Until that upgrade happens, the type below is a plain, self-contained
+// interface based on the standard Set-Cookie option fields (matching Next.js's
+// own ResponseCookie shape), NOT derived from @supabase/ssr's own types at all -
+// so it doesn't depend on that library's broken generic resolution to work.
+// No `any` anywhere in it.
 //
 // IMPORTANT: user_metadata.account_type is set/editable by the signed-in user via the
 // client SDK. It is used below ONLY to redirect a signed-in player/scout/club away from
@@ -38,9 +42,20 @@ import { NextResponse, type NextRequest } from "next/server";
 // by the client - so it IS safe to use as a real security boundary. is_admin is stored
 // there for that reason.
 
-type ServerClientOptions = NonNullable<Parameters<typeof createServerClient>[2]>;
-type CookiesConfig = NonNullable<ServerClientOptions["cookies"]>;
-type ModernCookiesConfig = Extract<CookiesConfig, { setAll: unknown }>;
+interface CookieToSet {
+  name: string;
+  value: string;
+  options?: {
+    domain?: string;
+    path?: string;
+    maxAge?: number;
+    expires?: Date;
+    httpOnly?: boolean;
+    secure?: boolean;
+    sameSite?: boolean | "lax" | "strict" | "none";
+    priority?: "low" | "medium" | "high";
+  };
+}
 
 const PLAYER_ROUTES = ["/player-dashboard"];
 const SCOUT_ROUTES = ["/scout-dashboard"];
@@ -55,25 +70,25 @@ function matches(path: string, routes: string[]) {
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
 
-  const cookieMethods: ModernCookiesConfig = {
-    getAll() {
-      return request.cookies.getAll();
-    },
-    setAll(cookiesToSet) {
-      cookiesToSet.forEach(({ name, value }) => {
-        request.cookies.set(name, value);
-      });
-      response = NextResponse.next({ request });
-      cookiesToSet.forEach(({ name, value, options }) => {
-        response.cookies.set(name, value, options);
-      });
-    },
-  };
-
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: cookieMethods }
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet: CookieToSet[]) {
+          cookiesToSet.forEach(({ name, value }) => {
+            request.cookies.set(name, value);
+          });
+          response = NextResponse.next({ request });
+          cookiesToSet.forEach(({ name, value, options }) => {
+            response.cookies.set(name, value, options);
+          });
+        },
+      },
+    }
   );
 
   const path = request.nextUrl.pathname;
