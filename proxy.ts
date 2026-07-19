@@ -1,7 +1,4 @@
-import {
-  createServerClient,
-  type CookieMethodsServer,
-} from "@supabase/ssr";
+import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 // Sprint 1A - Security Foundation
@@ -13,28 +10,23 @@ import { NextResponse, type NextRequest } from "next/server";
 // below were not actually executing (see Sprint 1A follow-up investigation).
 // Must remain named proxy.ts at the project root, exporting a function named `proxy`.
 //
-// VERSION NOTE: this project is on @supabase/ssr@0.5.2. Inspected the package's
-// actual source (createStorageFromOptions in src/cookies.ts) rather than relying
-// on docs: it runtime-feature-detects the cookies config against MULTIPLE
-// possible shapes (`'getAll' in cookies`, `'setAll' in cookies`, etc.), which
-// means the `cookies` option's real type is a UNION - CookieMethodsServer
-// (the current getAll/setAll shape) | CookieMethodsServerDeprecated (the old
-// get/set/remove shape) - kept side by side to support both during the
-// deprecation period your own VS Code tooltip flagged.
+// VERSION NOTE: this project is on @supabase/ssr@0.5.2. Two prior attempts here
+// guessed at named type exports (CookieOptions, CookieMethodsServer) that don't
+// resolve cleanly in this version - confirmed by directly checking the installed
+// package. Rather than guess a third name, the type below is derived MECHANICALLY
+// from createServerClient's own real signature via TypeScript's Parameters<>
+// utility, so it is correct for whatever is actually installed, regardless of
+// what any internal type is named or whether it's separately exported at all.
 //
-// TypeScript does not reliably push a concrete parameter type into an object
-// literal's methods when the literal is being checked against a UNION of
-// interfaces (a known contextual-typing limitation) - that's the actual
-// reason `cookiesToSet` kept coming back implicitly-any even after typing it
-// directly inside the literal: the object literal itself was ambiguous
-// against the union before TS ever got to checking its properties.
-//
-// Fix: declare the cookies methods object as its own variable with an
-// EXPLICIT type annotation pinned to ONE union member (CookieMethodsServer,
-// exported by @supabase/ssr itself), before passing it into
-// createServerClient. This removes the union ambiguity entirely, so
-// TypeScript infers setAll's parameter type correctly from that interface
-// with no hand-typed shape guessed on my end.
+// Background on why this was needed: @supabase/ssr's `cookies` config accepts a
+// union of shapes (current getAll/setAll vs. the deprecated get/set/remove style,
+// kept side by side during the migration your own VS Code tooltip flagged).
+// TypeScript does not reliably push contextual parameter types into an object
+// literal's methods when the literal is checked against a union of interfaces -
+// that's why annotating cookiesToSet directly inside the inline literal never
+// actually fixed anything. Extract<> below narrows that union down to
+// specifically the member that has a setAll method, using structural matching
+// rather than a guessed name - no `any` anywhere in this.
 //
 // IMPORTANT: user_metadata.account_type is set/editable by the signed-in user via the
 // client SDK. It is used below ONLY to redirect a signed-in player/scout/club away from
@@ -45,6 +37,10 @@ import { NextResponse, type NextRequest } from "next/server";
 // app_metadata, by contrast, can only be written by a service-role/server context, never
 // by the client - so it IS safe to use as a real security boundary. is_admin is stored
 // there for that reason.
+
+type ServerClientOptions = NonNullable<Parameters<typeof createServerClient>[2]>;
+type CookiesConfig = NonNullable<ServerClientOptions["cookies"]>;
+type ModernCookiesConfig = Extract<CookiesConfig, { setAll: unknown }>;
 
 const PLAYER_ROUTES = ["/player-dashboard"];
 const SCOUT_ROUTES = ["/scout-dashboard"];
@@ -59,7 +55,7 @@ function matches(path: string, routes: string[]) {
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
 
-  const cookieMethods: CookieMethodsServer = {
+  const cookieMethods: ModernCookiesConfig = {
     getAll() {
       return request.cookies.getAll();
     },
