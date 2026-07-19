@@ -9,9 +9,29 @@ export default function AdminPanel() {
   const [requests, setRequests] = useState<any[]>([]);
   const [totalPlayers, setTotalPlayers] = useState<number | null>(null);
 
-  useEffect(() => {
-    checkAccess();
-  }, []);
+  async function loadTotalPlayers() {
+    const { count, error } = await supabase
+      .from("player")
+      .select("*", { count: "exact", head: true });
+
+    if (!error) {
+      setTotalPlayers(count ?? 0);
+    }
+  }
+
+  async function loadRequests() {
+    const { data, error } = await supabase
+      .from("contact_requests")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    setRequests(data || []);
+  }
 
   // Defense-in-depth: proxy.ts is the primary route guard for this page. This check
   // exists in case that layer is misconfigured (see Sprint 1A follow-up investigation
@@ -38,29 +58,9 @@ export default function AdminPanel() {
     loadTotalPlayers();
   }
 
-async function loadTotalPlayers() {
-  const { count, error } = await supabase
-    .from("player")
-    .select("*", { count: "exact", head: true });
-
-  if (!error) {
-    setTotalPlayers(count ?? 0);
-  }
-}
-
-async function loadRequests() {
-  const { data, error } = await supabase
-    .from("contact_requests")
-    .select("*")
-    .order("created_at", { ascending: false });
-
-  if (error) {
-    console.error(error);
-    return;
-  }
-
-  setRequests(data || []);
-}
+  useEffect(() => {
+    checkAccess();
+  }, []);
 
   if (checkingAccess) {
     return (

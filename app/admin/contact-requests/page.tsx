@@ -6,10 +6,6 @@ import { supabase } from "../../lib/supabase";
 export default function ContactRequests() {
   const [requests, setRequests] = useState<any[]>([]);
 
-  useEffect(() => {
-    loadRequests();
-  }, []);
-
   async function loadRequests() {
     const { data } = await supabase
       .from("contact_requests")
@@ -18,6 +14,10 @@ export default function ContactRequests() {
 
     if (data) setRequests(data);
   }
+
+  useEffect(() => {
+    loadRequests();
+  }, []);
 
   return (
     <main className="max-w-7xl mx-auto py-10">

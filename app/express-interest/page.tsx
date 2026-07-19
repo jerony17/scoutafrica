@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { supabase } from "../lib/supabase"; 
 import { useSearchParams } from "next/navigation";
 
-export default function ExpressInterestPage() { 
+function ExpressInterestForm() { 
     const searchParams = useSearchParams();
   const [playerId, setPlayerId] = useState("");
   const [requestType, setRequestType] = useState("Trial Invitation");
@@ -115,5 +115,19 @@ const { data, error } = await supabase
 
       </div>
     </main>
+  );
+}
+
+export default function ExpressInterestPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen flex items-center justify-center">
+          Loading...
+        </main>
+      }
+    >
+      <ExpressInterestForm />
+    </Suspense>
   );
 }
