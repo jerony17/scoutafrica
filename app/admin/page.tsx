@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { supabase } from "../lib/supabase";
 
 export default function AdminPanel() { 
@@ -152,12 +151,13 @@ async function loadRequests() {
 
         </div>
 
-        <Link
-          href={`/admin/contact-requests/${request.id}`}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg"
+        <button
+          disabled
+          title="Coming soon"
+          className="bg-blue-300 text-white px-4 py-2 rounded-lg cursor-not-allowed"
         >
-          Review
-        </Link>
+          Review (Coming Soon)
+        </button>
 
       </div>
 

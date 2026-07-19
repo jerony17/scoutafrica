@@ -37,19 +37,15 @@ export default function PlayerRequests() {
     setRequests(data || []);
   }
 
-  async function updateRequest(id: number, status: string) { 
-    console.log("Updating request ID:", id);
-
+  async function updateRequest(id: number, status: string) {
   const { data, error } = await supabase
     .from("contact_requests")
     .update({ status })
     .eq("id", id)
-    .select();     
+    .select();
 
   if (status === "accepted" && data && data.length > 0) {
   const request = data[0];
-
-console.log("REQUEST:", request);
 
 const { error: conversationError } = await supabase
   .from("conversations")
@@ -59,10 +55,10 @@ const { error: conversationError } = await supabase
     player_id: request.player_id,
   });
 
-console.log("Conversation Error:", conversationError);
+  if (conversationError) {
+    console.error(conversationError);
+  }
 }
-console.log("UPDATE DATA:", data);
-console.log("UPDATE ERROR:", error);
 
   if (!error) {
     loadRequests();
