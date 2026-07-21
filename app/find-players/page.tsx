@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { supabase } from "../lib/supabase";  
+import { supabase } from "../lib/supabase";
+import type { Player } from "../lib/types";
 import * as Flags from "country-flag-icons/react/3x2";
 
 function getFlag(country: string) {
@@ -27,35 +28,36 @@ function getFlag(country: string) {
 
   
 
+const PLAYERS_PER_PAGE = 12;
+
 export default function FindPlayers() {
-  const [players, setPlayers] = useState<any[]>([]);
+  const [players, setPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);  
   const [page, setPage] = useState(1);
-  const playersPerPage = 12;
   const [searchTerm, setSearchTerm] = useState("");
   const [positionFilter, setPositionFilter] = useState("Position");
   const [nationFilter, setNationFilter] = useState("Nation");
   const [ageFilter, setAgeFilter] = useState("Age");
 
   useEffect(() => {
-    loadPlayers();
-  }, []);
-
-  async function loadPlayers() {
-    const { data, error } = await supabase
-      .from("player")
+    async function loadPlayers() {
+      const { data, error } = await supabase
+        .from("player")
 .select("*")
 .order("full_name")
-.range(0, page * playersPerPage - 1);
+.range(0, page * PLAYERS_PER_PAGE - 1);
 
-    if (error) {
-      console.error(error);
-    } else {
-      setPlayers(data || []);
+      if (error) {
+        console.error(error);
+      } else {
+        setPlayers(data || []);
+      }
+
+      setLoading(false);
     }
 
-    setLoading(false);
-  }
+    loadPlayers();
+  }, [page]);
 
   if (loading) {
     return <div className="p-10">Loading players...</div>;

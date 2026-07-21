@@ -1,7 +1,9 @@
 "use client";
 
+import type { Player } from "../../lib/types";
+
 type Props = {
-  player: any;
+  player: Player;
   addToWatchlist: (playerId: number) => void;
   savingWatchlist: boolean;
 };
@@ -18,7 +20,7 @@ export default function PlayerHeader({
       <div className="relative w-full h-[420px] rounded-3xl overflow-hidden shadow-xl">
         {player.cover_photo_url ? (
           <img
-            src={player.cover_photo_url}
+            src={player.cover_photo_url || undefined}
             alt="Cover"
             className="w-full h-full object-cover"
           />
@@ -34,8 +36,8 @@ export default function PlayerHeader({
           <div className="w-56 h-56 rounded-full border-4 border-white overflow-hidden shadow-xl bg-white">
             {player.photo_url ? (
               <img
-                src={player.photo_url}
-                alt={player.full_name}
+                src={player.photo_url || undefined}
+                alt={player.full_name || "Player"}
                 className="w-full h-full object-cover"
               />
             ) : (

@@ -1,7 +1,8 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use, useCallback, useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
+import type { Player, VideoRecord } from "../../lib/types";
 
 import PlayerHeader from "../components/PlayerHeader";
 import PlayerStats from "../components/PlayerStats";
@@ -20,26 +21,23 @@ export default function PlayerProfile({
   const { slug } = use(params);
 
   const [loading, setLoading] = useState(true);
-  const [player, setPlayer] = useState<any>(null);
+  const [player, setPlayer] = useState<Player | null>(null);
 
-  const [videos, setVideos] = useState<any[]>([]);
+  const [videos, setVideos] = useState<VideoRecord[]>([]);
   const [selectedVideo, setSelectedVideo] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [savingWatchlist, setSavingWatchlist] = useState(false); 
   const [savingFavorite, setSavingFavorite] = useState(false);
 
-  useEffect(() => {
-    loadPlayer();
-  }, []);
-
-  async function loadPlayer() {
+  const loadPlayer = useCallback(async () => {
     const { data, error } = await supabase
       .from("player")
       .select("*")
       .eq("slug", slug)
-      .single();
+      .single()
+      .returns<Player>();
 
-    if (error) {
+    if (error || !data) {
       console.error(error);
       setLoading(false);
       return;
@@ -50,13 +48,18 @@ export default function PlayerProfile({
     const { data: playerVideos } = await supabase
       .from("videos")
       .select("*")
-      .eq("player_id", data.user_id)
-      .order("created_at", { ascending: false });
+      .eq("player_id", data.user_id || "")
+      .order("created_at", { ascending: false })
+      .returns<VideoRecord[]>();
 
     setVideos(playerVideos || []);
 
     setLoading(false);
-  }
+  }, [slug]);
+
+  useEffect(() => {
+    loadPlayer();
+  }, [loadPlayer]);
 
   async function addToWatchlist(playerId: number) {
     setSavingWatchlist(true);
@@ -86,7 +89,7 @@ export default function PlayerProfile({
   }
 
   async function uploadVideo() {
-    if (!selectedVideo || !player) return;
+    if (!selectedVideo || !player || !player.user_id) return;
 
     setUploading(true);
 

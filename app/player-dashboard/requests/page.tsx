@@ -1,17 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/app/lib/supabase";
+import type { ContactRequest } from "@/app/lib/types";
 
 export default function PlayerRequests() {
-  const [requests, setRequests] = useState<any[]>([]);
+  const [requests, setRequests] = useState<ContactRequest[]>([]);
 
-  useEffect(() => {
-  loadRequests();
-}, []);
-
-  async function loadRequests() { 
-
+  const loadRequests = useCallback(async () => {
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -32,17 +28,23 @@ export default function PlayerRequests() {
       .from("contact_requests")
       .select("*")
       .eq("player_id", player.id)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .returns<ContactRequest[]>();
 
     setRequests(data || []);
-  }
+  }, []);
+
+  useEffect(() => {
+    loadRequests();
+  }, [loadRequests]);
 
   async function updateRequest(id: number, status: string) {
   const { data, error } = await supabase
     .from("contact_requests")
     .update({ status })
     .eq("id", id)
-    .select();
+    .select()
+    .returns<ContactRequest[]>();
 
   if (status === "accepted" && data && data.length > 0) {
   const request = data[0];

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, type FormEvent } from "react"
 
  
 import { supabase } from "../lib/supabase";
@@ -16,7 +16,7 @@ const [nationality, setNationality] = useState("")
 const [position, setPosition] = useState("")
 const [currentClub, setCurrentClub] = useState("") 
 const [photo, setPhoto] = useState<File | null>(null)
-const handleSubmit = async (e: any) => {
+const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
   e.preventDefault() 
 
 // Get logged in user

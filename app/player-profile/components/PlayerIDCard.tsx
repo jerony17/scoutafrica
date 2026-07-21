@@ -1,5 +1,7 @@
+import type { Player } from "../../lib/types";
+
 type Props = {
-  player: any;
+  player: Player;
 };
 
 export default function PlayerIDCard({ player }: Props) {

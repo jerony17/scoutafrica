@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
+import type { CareerHistoryEntry, Player } from "../../lib/types";
 
 export default function CareerHistory() { 
   const [showModal, setShowModal] = useState(false);
@@ -14,37 +15,15 @@ export default function CareerHistory() {
   const [appearances, setAppearances] = useState("");
   const [goals, setGoals] = useState("");
   const [assists, setAssists] = useState(""); 
-  const [player, setPlayer] = useState<any>(null);
-const [careerHistory, setCareerHistory] = useState<any[]>([]); 
-
-useEffect(() => {
-  loadPlayer();
-}, []);
-
-async function loadPlayer() {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) return;
-
-  const { data } = await supabase
-    .from("player")
-    .select("*")
-    .eq("user_id", user.id)
-    .single();
-
-  if (data) {
-    setPlayer(data);
-    loadCareerHistory(data.id);
-  }
-}
+  const [player, setPlayer] = useState<Player | null>(null);
+const [careerHistory, setCareerHistory] = useState<CareerHistoryEntry[]>([]); 
 
 async function loadCareerHistory(playerId: number) {
   const { data, error } = await supabase
     .from("career_history")
     .select("*")
-    .eq("player_id", playerId);
+    .eq("player_id", playerId)
+    .returns<CareerHistoryEntry[]>();
 
   if (error) {
     console.error(error);
@@ -55,6 +34,29 @@ async function loadCareerHistory(playerId: number) {
   }
 }
 
+useEffect(() => {
+  async function loadPlayer() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) return;
+
+    const { data } = await supabase
+      .from("player")
+      .select("*")
+      .eq("user_id", user.id)
+      .single()
+      .returns<Player>();
+
+    if (data) {
+      setPlayer(data);
+      loadCareerHistory(data.id);
+    }
+  }
+
+  loadPlayer();
+}, []);
 
   async function saveCareer() {
     if (!player) {

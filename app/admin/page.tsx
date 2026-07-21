@@ -2,65 +2,66 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../lib/supabase";
+import type { ContactRequest } from "../lib/types";
 
 export default function AdminPanel() { 
   const router = useRouter();
   const [checkingAccess, setCheckingAccess] = useState(true);
-  const [requests, setRequests] = useState<any[]>([]);
+  const [requests, setRequests] = useState<ContactRequest[]>([]);
   const [totalPlayers, setTotalPlayers] = useState<number | null>(null);
-
-  async function loadTotalPlayers() {
-    const { count, error } = await supabase
-      .from("player")
-      .select("*", { count: "exact", head: true });
-
-    if (!error) {
-      setTotalPlayers(count ?? 0);
-    }
-  }
-
-  async function loadRequests() {
-    const { data, error } = await supabase
-      .from("contact_requests")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      console.error(error);
-      return;
-    }
-
-    setRequests(data || []);
-  }
 
   // Defense-in-depth: proxy.ts is the primary route guard for this page. This check
   // exists in case that layer is misconfigured (see Sprint 1A follow-up investigation
   // - this is exactly what happened, so this check is not optional here). Unlike the
   // other dashboards, this checks app_metadata.is_admin, which the client cannot edit,
   // so this check is a real (if secondary) security boundary, not just UX.
-  async function checkAccess() {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      router.replace("/signin");
-      return;
-    }
-
-    if (user.app_metadata?.is_admin !== true) {
-      router.replace("/");
-      return;
-    }
-
-    setCheckingAccess(false);
-    loadRequests();
-    loadTotalPlayers();
-  }
-
   useEffect(() => {
+    async function loadTotalPlayers() {
+      const { count, error } = await supabase
+        .from("player")
+        .select("*", { count: "exact", head: true });
+
+      if (!error) {
+        setTotalPlayers(count ?? 0);
+      }
+    }
+
+    async function loadRequests() {
+      const { data, error } = await supabase
+        .from("contact_requests")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error(error);
+        return;
+      }
+
+      setRequests(data || []);
+    }
+
+    async function checkAccess() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        router.replace("/signin");
+        return;
+      }
+
+      if (user.app_metadata?.is_admin !== true) {
+        router.replace("/");
+        return;
+      }
+
+      setCheckingAccess(false);
+      loadRequests();
+      loadTotalPlayers();
+    }
+
     checkAccess();
-  }, []);
+  }, [router]);
 
   if (checkingAccess) {
     return (

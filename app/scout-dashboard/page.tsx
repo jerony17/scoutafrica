@@ -4,17 +4,14 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "../lib/supabase";
+import type { Player } from "../lib/types";
 
 export default function ScoutDashboard() { 
     const router = useRouter();
-    const [players, setPlayers] = useState<any[]>([]);
+    const [players, setPlayers] = useState<Player[]>([]);
     const [playersLoading, setPlayersLoading] = useState(true);
     const [checkingAccess, setCheckingAccess] = useState(true);
     const [watchlistCount, setWatchlistCount] = useState<number | null>(null);
-
-useEffect(() => {
-  checkAccess();
-}, []);
 
 // Defense-in-depth: proxy.ts (project-root route guard) is the primary gate for this
 // route. This client-side check exists in case that layer is ever misconfigured or
@@ -22,49 +19,55 @@ useEffect(() => {
 // exactly what happened during Sprint 1A testing). This is a UX/routing check only -
 // user_metadata.account_type is client-editable and is never trusted for real data
 // authorization, which is enforced separately by Supabase RLS.
-async function checkAccess() {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+useEffect(() => {
+  async function loadWatchlistCount(scoutId: string) {
+    const { count, error } = await supabase
+      .from("watchlist")
+      .select("*", { count: "exact", head: true })
+      .eq("scout_id", scoutId);
 
-  if (!user) {
-    router.replace("/signin");
-    return;
+    if (!error) {
+      setWatchlistCount(count ?? 0);
+    }
   }
 
-  if (user.user_metadata?.account_type !== "scout") {
-    router.replace("/");
-    return;
+  async function loadPlayers() {
+    const { data, error } = await supabase
+      .from("player")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(6)
+      .returns<Player[]>();
+
+    if (!error && data) {
+      setPlayers(data);
+    }
+
+    setPlayersLoading(false);
   }
 
-  setCheckingAccess(false);
-  loadPlayers();
-  loadWatchlistCount(user.id);
-}
+  async function checkAccess() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-async function loadWatchlistCount(scoutId: string) {
-  const { count, error } = await supabase
-    .from("watchlist")
-    .select("*", { count: "exact", head: true })
-    .eq("scout_id", scoutId);
+    if (!user) {
+      router.replace("/signin");
+      return;
+    }
 
-  if (!error) {
-    setWatchlistCount(count ?? 0);
+    if (user.user_metadata?.account_type !== "scout") {
+      router.replace("/");
+      return;
+    }
+
+    setCheckingAccess(false);
+    loadPlayers();
+    loadWatchlistCount(user.id);
   }
-}
 
-async function loadPlayers() {
-  const { data, error } = await supabase
-    .from("player")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .limit(6);
-
-  if (!error && data) {
-    setPlayers(data);
-  }
-  setPlayersLoading(false);
-}
+  checkAccess();
+}, [router]);
 
   if (checkingAccess) {
     return (

@@ -2,20 +2,21 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
+import type { ContactRequest } from "../../lib/types";
 
 export default function ContactRequests() {
-  const [requests, setRequests] = useState<any[]>([]);
-
-  async function loadRequests() {
-    const { data } = await supabase
-      .from("contact_requests")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (data) setRequests(data);
-  }
+  const [requests, setRequests] = useState<ContactRequest[]>([]);
 
   useEffect(() => {
+    async function loadRequests() {
+      const { data } = await supabase
+        .from("contact_requests")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (data) setRequests(data);
+    }
+
     loadRequests();
   }, []);
 

@@ -9,29 +9,29 @@ export default function ClubDashboard() {
   const [checkingAccess, setCheckingAccess] = useState(true);
 
   useEffect(() => {
+    // Defense-in-depth: proxy.ts is the primary route guard for this page. This check
+    // exists in case that layer is misconfigured (see Sprint 1A follow-up investigation).
+    // user_metadata.account_type is a UX/routing check only, never a security boundary.
+    async function checkAccess() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        router.replace("/signin");
+        return;
+      }
+
+      if (user.user_metadata?.account_type !== "club") {
+        router.replace("/");
+        return;
+      }
+
+      setCheckingAccess(false);
+    }
+
     checkAccess();
-  }, []);
-
-  // Defense-in-depth: proxy.ts is the primary route guard for this page. This check
-  // exists in case that layer is misconfigured (see Sprint 1A follow-up investigation).
-  // user_metadata.account_type is a UX/routing check only, never a security boundary.
-  async function checkAccess() {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      router.replace("/signin");
-      return;
-    }
-
-    if (user.user_metadata?.account_type !== "club") {
-      router.replace("/");
-      return;
-    }
-
-    setCheckingAccess(false);
-  }
+  }, [router]);
 
   if (checkingAccess) {
     return (

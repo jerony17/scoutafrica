@@ -3,55 +3,55 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "../../lib/supabase";
+import type { Player } from "../../lib/types";
 
 export default function WatchlistPage() {
-  const [players, setPlayers] = useState<any[]>([]);
+  const [players, setPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
   const [removing, setRemoving] = useState<number | null>(null);
 
   useEffect(() => {
+    async function loadWatchlist() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
+      const { data: watchlist, error } = await supabase
+        .from("watchlist")
+        .select("player_id")
+        .eq("scout_id", user.id);
+
+      if (error) {
+        console.error(error);
+        setLoading(false);
+        return;
+      }
+
+      if (!watchlist || watchlist.length === 0) {
+        setPlayers([]);
+        setLoading(false);
+        return;
+      }
+
+      const playerIds = watchlist.map((item) => item.player_id);
+
+      const { data: playerData } = await supabase
+        .from("player")
+        .select("*")
+        .in("id", playerIds)
+        .returns<Player[]>();
+
+      setPlayers(playerData || []);
+      setLoading(false);
+    }
+
     loadWatchlist();
-  }, []);  
-
-
-
-  async function loadWatchlist() {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-
-    const { data: watchlist, error } = await supabase
-      .from("watchlist")
-      .select("player_id")
-      .eq("scout_id", user.id);
-
-    if (error) {
-      console.error(error);
-      setLoading(false);
-      return;
-    }
-
-    if (!watchlist || watchlist.length === 0) {
-      setPlayers([]);
-      setLoading(false);
-      return;
-    }
-
-    const playerIds = watchlist.map((item) => item.player_id);
-
-    const { data: playerData } = await supabase
-      .from("player")
-      .select("*")
-      .in("id", playerIds);
-
-    setPlayers(playerData || []);
-    setLoading(false);
-  }   
+  }, []);
 
   async function removeFromWatchlist(playerId: number) {
   setRemoving(playerId);

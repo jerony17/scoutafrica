@@ -7,8 +7,10 @@ import {
 import { MdSportsSoccer } from "react-icons/md";
 import { BsFillSquareFill } from "react-icons/bs";
 
+import type { Player } from "../../lib/types";
+
 type Props = {
-  player: any;
+  player: Player;
 };
 
 export default function SeasonStats({ player }: Props) {

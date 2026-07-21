@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
+import type { Player } from "../lib/types";
 
 export default function EditProfile() {
-  const [player, setPlayer] = useState<any>(null);   
+  const [player, setPlayer] = useState<Player | null>(null);   
 
   const [selectedProfilePhoto, setSelectedProfilePhoto] = useState<File | null>(null);
 const [selectedCoverPhoto, setSelectedCoverPhoto] = useState<File | null>(null);
@@ -12,28 +13,30 @@ const [uploadingProfile, setUploadingProfile] = useState(false);
 const [uploadingCover, setUploadingCover] = useState(false);
 
   useEffect(() => {
-    loadPlayer();
+    async function loadPlayer() {
+      const {   
+        data: { user },
+      } = await supabase.auth.getUser();
 
+      if (!user) return;
+
+      const { data } = await supabase
+        .from("player")
+        .select("*")
+        .eq("user_id", user.id)
+        .single();
+
+      if (data) {
+        setPlayer(data);
+      }
+    }
+
+    loadPlayer();
   }, []);
 
-  async function loadPlayer() {
-    const {   
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) return;
-
-    const { data } = await supabase
-      .from("player")
-      .select("*")
-      .eq("user_id", user.id)
-      .single();
-
-    if (data) {
-      setPlayer(data);
-    }
-  } 
   async function saveProfile() {
+    if (!player) return;
+
     const { data, error } = await supabase
   .from("player")
   .update({
@@ -275,7 +278,10 @@ if (updateError) {
             type="number"
             value={player.height || ""}
             onChange={(e) =>
-              setPlayer({ ...player, height: e.target.value })
+              setPlayer({
+                ...player,
+                height: e.target.value === "" ? null : Number(e.target.value),
+              })
             }
             placeholder="Height"
           />
@@ -285,7 +291,10 @@ if (updateError) {
             type="number"
             value={player.weight || ""}
             onChange={(e) =>
-              setPlayer({ ...player, weight: e.target.value })
+              setPlayer({
+                ...player,
+                weight: e.target.value === "" ? null : Number(e.target.value),
+              })
             }
             placeholder="Weight"
           />

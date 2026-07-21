@@ -9,29 +9,29 @@ export default function AgentDashboard() {
   const [checkingAccess, setCheckingAccess] = useState(true);
 
   useEffect(() => {
+    // Defense-in-depth: proxy.ts is the primary route guard for this page (added in
+    // Sprint 2A alongside this dashboard). user_metadata.account_type is a UX/routing
+    // check only, never a security boundary - see the Security Addendum for detail.
+    async function checkAccess() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        router.replace("/signin");
+        return;
+      }
+
+      if (user.user_metadata?.account_type !== "agent") {
+        router.replace("/");
+        return;
+      }
+
+      setCheckingAccess(false);
+    }
+
     checkAccess();
-  }, []);
-
-  // Defense-in-depth: proxy.ts is the primary route guard for this page (added in
-  // Sprint 2A alongside this dashboard). user_metadata.account_type is a UX/routing
-  // check only, never a security boundary - see the Security Addendum for detail.
-  async function checkAccess() {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      router.replace("/signin");
-      return;
-    }
-
-    if (user.user_metadata?.account_type !== "agent") {
-      router.replace("/");
-      return;
-    }
-
-    setCheckingAccess(false);
-  }
+  }, [router]);
 
   if (checkingAccess) {
     return (

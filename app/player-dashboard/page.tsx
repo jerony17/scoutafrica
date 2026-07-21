@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../lib/supabase";
+import type { CareerHistoryEntry, Player } from "../lib/types";
 
 export default function PlayerDashboard() {
   const router = useRouter();
-  const [player, setPlayer] = useState<any>(null);
+  const [player, setPlayer] = useState<Player | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
 
@@ -16,11 +17,33 @@ const [assists, setAssists] = useState(0);
 const [profileComplete, setProfileComplete] = useState(20);
 const [missingFields, setMissingFields] = useState<string[]>([]);
 
-  useEffect(() => {
-    loadPlayer();
+  const loadPlayerStats = useCallback(async (playerId: number) => {
+    const { data, error } = await supabase
+      .from("career_history")
+      .select("*")
+      .eq("player_id", playerId)
+      .returns<CareerHistoryEntry[]>();
+
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    const totalMatches =
+      data?.reduce((sum, club) => sum + Number(club.appearances || 0), 0) || 0;
+
+    const totalGoals =
+      data?.reduce((sum, club) => sum + Number(club.goals || 0), 0) || 0;
+
+    const totalAssists =
+      data?.reduce((sum, club) => sum + Number(club.assists || 0), 0) || 0;
+
+    setMatches(totalMatches);
+    setGoals(totalGoals);
+    setAssists(totalAssists);
   }, []);
 
-  async function loadPlayer() {
+  const loadPlayer = useCallback(async () => {
     // Get logged in user
     const {
       data: { user },
@@ -45,7 +68,8 @@ const [missingFields, setMissingFields] = useState<string[]>([]);
       .from("player")
       .select("*")
       .eq("user_id", user.id)
-      .maybeSingle();
+      .maybeSingle()
+      .returns<Player>();
 
     if (error) {
       setLoadError(true);
@@ -57,7 +81,7 @@ const [missingFields, setMissingFields] = useState<string[]>([]);
     setPlayer(data);
     loadPlayerStats(data.id);
 
-    const fields: { key: string; label: string }[] = [
+    const fields: { key: keyof Player; label: string }[] = [
       { key: "full_name", label: "Full name" },
       { key: "photo_url", label: "Profile photo" },
       { key: "position", label: "Position" },
@@ -78,31 +102,11 @@ const [missingFields, setMissingFields] = useState<string[]>([]);
 }
 
     setLoading(false);
-  }
-async function loadPlayerStats(playerId: number) {
-  const { data, error } = await supabase
-    .from("career_history")
-    .select("*")
-    .eq("player_id", playerId);
+  }, [router, loadPlayerStats]);
 
-  if (error) {
-    console.error(error);
-    return;
-  }
-
-  const totalMatches =
-    data?.reduce((sum, club) => sum + Number(club.appearances || 0), 0) || 0;
-
-  const totalGoals =
-    data?.reduce((sum, club) => sum + Number(club.goals || 0), 0) || 0;
-
-  const totalAssists =
-    data?.reduce((sum, club) => sum + Number(club.assists || 0), 0) || 0;
-
-  setMatches(totalMatches);
-  setGoals(totalGoals);
-  setAssists(totalAssists);
-}
+  useEffect(() => {
+    loadPlayer();
+  }, [loadPlayer]);
 
   if (loading) {
     return (
@@ -165,7 +169,7 @@ async function loadPlayerStats(playerId: number) {
                 player.photo_url ||
                 "https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=400"
               }
-              alt={player.full_name}
+              alt={player.full_name || "Player"}
               className="w-28 h-28 rounded-full object-cover bg-gray-200"
             />
 

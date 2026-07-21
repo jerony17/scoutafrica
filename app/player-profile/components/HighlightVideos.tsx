@@ -1,5 +1,7 @@
+import type { VideoRecord } from "../../lib/types";
+
 type Props = {
-  videos: any[];
+  videos: VideoRecord[];
 };
 
 export default function HighlightVideos({ videos }: Props) { 

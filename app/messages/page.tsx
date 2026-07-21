@@ -2,32 +2,33 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
+import type { Conversation, ConversationWithPlayer, Message, Player } from "../lib/types";
 
 export default function Messages() {
-  const [conversations, setConversations] = useState<any[]>([]);
-  const [selectedConversation, setSelectedConversation] = useState<any>(null);
-  const [messages, setMessages] = useState<any[]>([]);
+  const [conversations, setConversations] = useState<ConversationWithPlayer[]>([]);
+  const [selectedConversation, setSelectedConversation] = useState<ConversationWithPlayer | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [currentUserId, setCurrentUserId] = useState("");
   const [newMessage, setNewMessage] = useState("");
   const [loadingConversations, setLoadingConversations] = useState(true);
   const [sending, setSending] = useState(false);
 
   useEffect(() => {
+    async function init() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) return;
+
+      setCurrentUserId(user.id);
+      await loadConversations();
+    }
+
     init();
   }, []);
 
-  async function init() {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) return;
-
-    setCurrentUserId(user.id);
-    await loadConversations(user.id);
-  }
-
-  async function loadConversations(userId: string) {
+  async function loadConversations() {
     setLoadingConversations(true);
 
     // RLS already scopes this to conversations the current user is actually part of
@@ -35,7 +36,8 @@ export default function Messages() {
     const { data, error } = await supabase
       .from("conversations")
       .select("*")
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .returns<Conversation[]>();
 
     if (error || !data) {
       setLoadingConversations(false);
@@ -45,22 +47,23 @@ export default function Messages() {
     // conversations has no counterpart name on it - fetch the involved player rows
     // in one batch and merge them in, rather than a name column that doesn't exist.
     const playerIds = [...new Set(data.map((c) => c.player_id))];
-    let playersById: Record<number, any> = {};
+    let playersById: Record<number, Pick<Player, "id" | "full_name" | "photo_url" | "user_id">> = {};
 
     if (playerIds.length > 0) {
       const { data: players } = await supabase
         .from("player")
         .select("id, full_name, photo_url, user_id")
-        .in("id", playerIds);
+        .in("id", playerIds)
+        .returns<Pick<Player, "id" | "full_name" | "photo_url" | "user_id">[]>();
 
       if (players) {
         playersById = Object.fromEntries(players.map((p) => [p.id, p]));
       }
     }
 
-    const enriched = data.map((c) => ({
+    const enriched: ConversationWithPlayer[] = data.map((c) => ({
       ...c,
-      player: playersById[c.player_id] || null,
+      player: (c.player_id !== null ? playersById[c.player_id] : null) || null,
     }));
 
     setConversations(enriched);
@@ -72,14 +75,15 @@ export default function Messages() {
       .from("messages")
       .select("*")
       .eq("conversation_id", conversationId)
-      .order("created_at", { ascending: true });
+      .order("created_at", { ascending: true })
+      .returns<Message[]>();
 
     if (!error && data) {
       setMessages(data);
     }
   }
 
-  function counterpartLabel(conversation: any) {
+  function counterpartLabel(conversation: ConversationWithPlayer | null) {
     if (!conversation) return "";
     const iAmScout = currentUserId === conversation.scout_id;
     if (iAmScout) {
@@ -113,12 +117,13 @@ export default function Messages() {
         message: text,
       })
       .select()
-      .single();
+      .single()
+      .returns<Message>();
 
     setSending(false);
 
-    if (error) {
-      alert(error.message);
+    if (error || !data) {
+      alert(error?.message || "Failed to send message.");
       return;
     }
 
