@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 
 export default function CareerHistory() { 
-  console.log("Career History page loaded");
   const [showModal, setShowModal] = useState(false);
 
   const [clubName, setClubName] = useState("");
@@ -42,15 +41,14 @@ async function loadPlayer() {
 }
 
 async function loadCareerHistory(playerId: number) {
-  console.log("Player ID:", playerId);
-
   const { data, error } = await supabase
     .from("career_history")
     .select("*")
     .eq("player_id", playerId);
 
-  console.log("Career History:", data);
-  console.log("Error:", error);
+  if (error) {
+    console.error(error);
+  }
 
   if (data) {
     setCareerHistory(data);

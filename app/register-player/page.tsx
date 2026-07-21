@@ -29,6 +29,27 @@ if (!user) {
   return;
 }
 
+if (!fullName.trim()) {
+  alert("Please enter your full name.");
+  return;
+}
+
+const ageNumber = Number(age);
+if (!age || !Number.isFinite(ageNumber) || ageNumber < 14 || ageNumber > 45) {
+  alert("Please enter a valid age between 14 and 45.");
+  return;
+}
+
+if (!nationality.trim()) {
+  alert("Please enter your nationality.");
+  return;
+}
+
+if (!position.trim()) {
+  alert("Please select your position.");
+  return;
+}
+
 // Generate ScoutAfrica ID
 const scoutAfricaId =
   "SA-" + Math.floor(100000 + Math.random() * 900000);
@@ -72,8 +93,6 @@ if (photo) {
 }
 
 
-  console.log({ scoutAfricaId, slug });
-
   const { data, error } = await supabase
     .from("player") 
 
@@ -94,11 +113,10 @@ if (photo) {
 ])
 
   if (error) {
-    console.log(error)
+    console.error(error)
     alert(error.message)
   } else {
     alert("Player registered successfully")
-    console.log(data)
   }
 }
 
@@ -168,7 +186,6 @@ if (photo) {
     
   onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-        console.log(e.target.files[0])
         setPhoto(e.target.files[0])
     }
 }}

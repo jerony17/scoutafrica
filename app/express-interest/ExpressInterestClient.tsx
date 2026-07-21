@@ -31,11 +31,22 @@ export default function ExpressInterestClient({
       return;
     }
 
+    const playerIdNumber = Number(playerId);
+    if (!playerId || !Number.isFinite(playerIdNumber) || playerIdNumber <= 0) {
+      alert("No player selected. Please go back and choose a player first.");
+      return;
+    }
+
+    if (!message.trim()) {
+      alert("Please add a message before sending.");
+      return;
+    }
+
     setSending(true);
 
     const payload = {
       sender_id: user.id,
-      player_id: Number(playerId),
+      player_id: playerIdNumber,
       sender_type: user.user_metadata?.account_type || "scout",
       request_type: requestType,
       message,
