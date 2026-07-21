@@ -33,6 +33,23 @@ if (!user) {
 const scoutAfricaId =
   "SA-" + Math.floor(100000 + Math.random() * 900000);
 
+// Generate a unique, URL-safe slug from the player's name. Appending the
+// same random digits used for scoutAfricaId guarantees uniqueness without
+// an extra query, and the "player" fallback + player_slug_unique DB
+// constraint (migration 010) both cover the case of an empty/unusual name.
+function slugify(text: string) {
+  return text
+    .toString()
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+const slugBase = slugify(fullName) || "player";
+const slugSuffix = scoutAfricaId.replace("SA-", "");
+const slug = `${slugBase}-${slugSuffix}`;
+
 let photoUrl = ""
 
 if (photo) {
@@ -70,6 +87,7 @@ if (photo) {
     email: user.email,
     user_id: user.id,
     scoutafrica_id: scoutAfricaId,
+    slug: slug,
   },
 ])
 

@@ -237,12 +237,22 @@ export default function FindPlayers() {
 {player.scoutafrica_id}
     </p>
 
-    <Link
-  href={`/player-profile/${player.slug}`}
-  className="block w-full mt-5 bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl text-center font-semibold"
->
-  View Profile
-</Link>
+    {player.slug ? (
+      <Link
+        href={`/player-profile/${player.slug}`}
+        className="block w-full mt-5 bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl text-center font-semibold"
+      >
+        View Profile
+      </Link>
+    ) : (
+      <button
+        disabled
+        title="This player's profile isn't available yet"
+        className="block w-full mt-5 bg-gray-300 text-gray-500 py-3 rounded-xl text-center font-semibold cursor-not-allowed"
+      >
+        Profile Unavailable
+      </button>
+    )}
 
   </div>
 
