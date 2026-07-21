@@ -33,11 +33,18 @@ export default function PlayerProfile({
   }, []);
 
   async function loadPlayer() {
+    console.log("Current URL:", window.location.pathname);
+    console.log("slug requested:", JSON.stringify(slug));
+
     const { data, error } = await supabase
       .from("player")
       .select("*")
       .eq("slug", slug)
       .single();
+
+    console.log("query error:", error);
+    console.log("query data:", data);
+    console.log("params:", params);
 
     if (error) {
       console.error(error);
