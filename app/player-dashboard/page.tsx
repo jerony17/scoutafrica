@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { supabase } from "../lib/supabase";
 import type { CareerHistoryEntry, Player } from "../lib/types";
 
@@ -140,7 +141,7 @@ const [missingFields, setMissingFields] = useState<string[]>([]);
     return (
       <div className="min-h-screen flex flex-col items-center justify-center text-center px-4 gap-4">
         <p className="text-xl">
-          You haven't completed your player profile yet.
+          You haven&apos;t completed your player profile yet.
         </p>
         <a
           href="/register-player"
@@ -164,12 +165,14 @@ const [missingFields, setMissingFields] = useState<string[]>([]);
 
           <div className="flex items-center gap-6">
 
-            <img
+            <Image
               src={
                 player.photo_url ||
                 "https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=400"
               }
               alt={player.full_name || "Player"}
+              width={112}
+              height={112}
               className="w-28 h-28 rounded-full object-cover bg-gray-200"
             />
 

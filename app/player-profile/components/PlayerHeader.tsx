@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import type { Player } from "../../lib/types";
 
 type Props = {
@@ -19,10 +20,11 @@ export default function PlayerHeader({
       {/* Cover Photo */}
       <div className="relative w-full h-[420px] rounded-3xl overflow-hidden shadow-xl">
         {player.cover_photo_url ? (
-          <img
-            src={player.cover_photo_url || undefined}
+          <Image
+            src={player.cover_photo_url!}
             alt="Cover"
-            className="w-full h-full object-cover"
+            fill
+            className="object-cover"
           />
         ) : (
           <div className="w-full h-full bg-gradient-to-r from-blue-700 via-sky-500 to-cyan-400" />
@@ -33,12 +35,13 @@ export default function PlayerHeader({
 
         {/* Profile Photo */}
         <div className="-mt-28">
-          <div className="w-56 h-56 rounded-full border-4 border-white overflow-hidden shadow-xl bg-white">
+          <div className="relative w-56 h-56 rounded-full border-4 border-white overflow-hidden shadow-xl bg-white">
             {player.photo_url ? (
-              <img
-                src={player.photo_url || undefined}
+              <Image
+                src={player.photo_url}
                 alt={player.full_name || "Player"}
-                className="w-full h-full object-cover"
+                fill
+                className="object-cover"
               />
             ) : (
               <div className="w-full h-full bg-gray-200 flex items-center justify-center">

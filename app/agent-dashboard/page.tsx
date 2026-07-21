@@ -51,14 +51,14 @@ export default function AgentDashboard() {
         </h1>
 
         <p className="text-gray-600 max-w-lg mx-auto mb-8">
-          Thanks for registering as an agent with ScoutAfrica. We're actively
+          Thanks for registering as an agent with ScoutAfrica. We&apos;re actively
           building out full agent functionality - including client portfolio
           management, licensed representation verification, and negotiation
           tracking tools. This is coming in an upcoming release.
         </p>
 
         <div className="text-left bg-gray-50 rounded-xl p-6 mb-8">
-          <h2 className="font-bold mb-3">What's coming for agents:</h2>
+          <h2 className="font-bold mb-3">What&apos;s coming for agents:</h2>
           <ul className="space-y-2 text-gray-600 text-sm">
             <li>✓ Agent verification and license upload</li>
             <li>✓ Client portfolio management</li>

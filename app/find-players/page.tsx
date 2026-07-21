@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { supabase } from "../lib/supabase";
 import type { Player } from "../lib/types";
 import * as Flags from "country-flag-icons/react/3x2";
@@ -194,14 +195,17 @@ export default function FindPlayers() {
   className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition duration-300"
 >
 
-  <img
-    src={
-      player.photo_url ||
-      "https://placehold.co/600x400?text=ScoutAfrica+Player"
-    }
-    alt={player.full_name}
-    className="w-full h-56 object-cover"
-  />
+  <div className="relative w-full h-56">
+    <Image
+      src={
+        player.photo_url ||
+        "https://placehold.co/600x400?text=ScoutAfrica+Player"
+      }
+      alt={player.full_name || "Player"}
+      fill
+      className="object-cover"
+    />
+  </div>
 
   <div className="p-5">
 

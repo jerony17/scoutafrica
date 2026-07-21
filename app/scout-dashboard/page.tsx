@@ -93,7 +93,7 @@ useEffect(() => {
   </p>
 
   <p className="mt-2 opacity-90">
-    ScoutAfrica helps you discover Africa's next football stars.
+    ScoutAfrica helps you discover Africa&apos;s next football stars.
   </p>
 
 </div>

@@ -9,7 +9,7 @@ export default function TrialsPage() {
         </h1>
 
         <p className="text-gray-600 max-w-lg mx-auto mb-8">
-          We're building a full trial marketplace where clubs can post open
+          We&apos;re building a full trial marketplace where clubs can post open
           trials and players can apply directly. This feature is coming in an
           upcoming release.
         </p>

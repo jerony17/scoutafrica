@@ -27,7 +27,6 @@ export default function PlayerProfile({
   const [selectedVideo, setSelectedVideo] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [savingWatchlist, setSavingWatchlist] = useState(false); 
-  const [savingFavorite, setSavingFavorite] = useState(false);
 
   const loadPlayer = useCallback(async () => {
     const { data, error } = await supabase

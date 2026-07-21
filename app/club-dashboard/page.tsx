@@ -51,14 +51,14 @@ export default function ClubDashboard() {
         </h1>
 
         <p className="text-gray-600 max-w-lg mx-auto mb-8">
-          Thanks for registering your club with ScoutAfrica. We're actively
+          Thanks for registering your club with ScoutAfrica. We&apos;re actively
           building out full club functionality - including player discovery
           tools, trial management, and scouting pipelines tailored for
           organizations. This is coming in an upcoming release.
         </p>
 
         <div className="text-left bg-gray-50 rounded-xl p-6 mb-8">
-          <h2 className="font-bold mb-3">What's coming for clubs:</h2>
+          <h2 className="font-bold mb-3">What&apos;s coming for clubs:</h2>
           <ul className="space-y-2 text-gray-600 text-sm">
             <li>✓ Full club profile and verification</li>
             <li>✓ Player discovery and shortlisting tools</li>

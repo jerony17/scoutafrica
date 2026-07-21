@@ -1,6 +1,7 @@
 "use client"; 
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { supabase } from "../lib/supabase";
 import type { Player } from "../lib/types";
 
@@ -9,8 +10,6 @@ export default function EditProfile() {
 
   const [selectedProfilePhoto, setSelectedProfilePhoto] = useState<File | null>(null);
 const [selectedCoverPhoto, setSelectedCoverPhoto] = useState<File | null>(null);
-const [uploadingProfile, setUploadingProfile] = useState(false);
-const [uploadingCover, setUploadingCover] = useState(false);
 
   useEffect(() => {
     async function loadPlayer() {
@@ -168,7 +167,7 @@ if (updateError) {
     <div className="mb-8">
   <div className="relative h-64 w-full rounded-2xl overflow-hidden bg-gray-300">
 
-    <img     
+    <Image     
 
          src={
   player.cover_photo_url ||
@@ -176,7 +175,8 @@ if (updateError) {
 }
       
       alt="Cover"
-      className="w-full h-full object-cover"
+      fill
+      className="object-cover"
     />   
 
     <div className="absolute bottom-4 right-4 flex gap-2">
@@ -204,12 +204,14 @@ if (updateError) {
 </div>
 
 <div className="mb-8 flex items-center gap-6">
-  <img
+  <Image
     src={
       player.photo_url ||
       "https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=400"
     }
     alt="Profile"
+    width={112}
+    height={112}
     className="h-28 w-28 rounded-full object-cover bg-gray-300 border-4 border-white shadow"
   />
 
