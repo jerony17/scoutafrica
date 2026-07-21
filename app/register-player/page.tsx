@@ -72,6 +72,8 @@ if (photo) {
 }
 
 
+  console.log({ scoutAfricaId, slug });
+
   const { data, error } = await supabase
     .from("player") 
 
