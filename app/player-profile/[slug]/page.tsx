@@ -163,7 +163,6 @@ return (
       <HighlightVideos videos={videos} />
 
       <VideoUpload
-        selectedVideo={selectedVideo}
         setSelectedVideo={setSelectedVideo}
         uploadVideo={uploadVideo}
         uploading={uploading}

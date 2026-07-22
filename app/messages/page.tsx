@@ -14,6 +14,48 @@ export default function Messages() {
   const [sending, setSending] = useState(false);
 
   useEffect(() => {
+    async function loadConversations() {
+      setLoadingConversations(true);
+
+      // RLS already scopes this to conversations the current user is actually part of
+      // (either as scout_id, or as the owner of the referenced player row)
+      const { data, error } = await supabase
+        .from("conversations")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .returns<Conversation[]>();
+
+      if (error || !data) {
+        setLoadingConversations(false);
+        return;
+      }
+
+      // conversations has no counterpart name on it - fetch the involved player rows
+      // in one batch and merge them in, rather than a name column that doesn't exist.
+      const playerIds = [...new Set(data.map((c) => c.player_id))];
+      let playersById: Record<number, Pick<Player, "id" | "full_name" | "photo_url" | "user_id">> = {};
+
+      if (playerIds.length > 0) {
+        const { data: players } = await supabase
+          .from("player")
+          .select("id, full_name, photo_url, user_id")
+          .in("id", playerIds)
+          .returns<Pick<Player, "id" | "full_name" | "photo_url" | "user_id">[]>();
+
+        if (players) {
+          playersById = Object.fromEntries(players.map((p) => [p.id, p]));
+        }
+      }
+
+      const enriched: ConversationWithPlayer[] = data.map((c) => ({
+        ...c,
+        player: (c.player_id !== null ? playersById[c.player_id] : null) || null,
+      }));
+
+      setConversations(enriched);
+      setLoadingConversations(false);
+    }
+
     async function init() {
       const {
         data: { user },
@@ -27,48 +69,6 @@ export default function Messages() {
 
     init();
   }, []);
-
-  async function loadConversations() {
-    setLoadingConversations(true);
-
-    // RLS already scopes this to conversations the current user is actually part of
-    // (either as scout_id, or as the owner of the referenced player row)
-    const { data, error } = await supabase
-      .from("conversations")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .returns<Conversation[]>();
-
-    if (error || !data) {
-      setLoadingConversations(false);
-      return;
-    }
-
-    // conversations has no counterpart name on it - fetch the involved player rows
-    // in one batch and merge them in, rather than a name column that doesn't exist.
-    const playerIds = [...new Set(data.map((c) => c.player_id))];
-    let playersById: Record<number, Pick<Player, "id" | "full_name" | "photo_url" | "user_id">> = {};
-
-    if (playerIds.length > 0) {
-      const { data: players } = await supabase
-        .from("player")
-        .select("id, full_name, photo_url, user_id")
-        .in("id", playerIds)
-        .returns<Pick<Player, "id" | "full_name" | "photo_url" | "user_id">[]>();
-
-      if (players) {
-        playersById = Object.fromEntries(players.map((p) => [p.id, p]));
-      }
-    }
-
-    const enriched: ConversationWithPlayer[] = data.map((c) => ({
-      ...c,
-      player: (c.player_id !== null ? playersById[c.player_id] : null) || null,
-    }));
-
-    setConversations(enriched);
-    setLoadingConversations(false);
-  }
 
   async function loadMessages(conversationId: number) {
     const { data, error } = await supabase

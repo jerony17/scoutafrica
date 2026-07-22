@@ -93,7 +93,7 @@ if (photo) {
 }
 
 
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from("player") 
 
     .insert([

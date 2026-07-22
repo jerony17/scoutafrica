@@ -1,12 +1,10 @@
 type Props = {
-  selectedVideo: File | null;
   setSelectedVideo: (file: File | null) => void;
   uploadVideo: () => void;
   uploading: boolean;
 };
 
 export default function VideoUpload({
-  selectedVideo,
   setSelectedVideo,
   uploadVideo,
   uploading,
