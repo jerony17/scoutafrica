@@ -12,7 +12,7 @@ import ExpressInterestClient from "./ExpressInterestClient";
 export default function ExpressInterestPage({
   searchParams,
 }: {
-  searchParams: Promise<{ player?: string }>;
+  searchParams: Promise<{ player?: string; type?: string }>;
 }) {
   return (
     <Suspense

@@ -2,16 +2,29 @@
 
 import { use, useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
-import { isArrayOf, isPlayer, isVideoRecord } from "../../lib/types";
-import type { Player, VideoRecord } from "../../lib/types";
+import {
+  isAchievement,
+  isArrayOf,
+  isPlayer,
+  isPlayerPhoto,
+  isScoutNote,
+  isVideoRecord,
+} from "../../lib/types";
+import type { Achievement, Player, PlayerPhoto, ScoutNote, VideoRecord } from "../../lib/types";
 
 import PlayerHeader from "../components/PlayerHeader";
+import ActionButtons from "../components/ActionButtons";
 import PlayerStats from "../components/PlayerStats";
 import SeasonStats from "../components/SeasonStats";
 import CareerHistory from "../components/CareerHistory";
 import ScoutOverview from "../components/ScoutOverview";
+import Achievements from "../components/Achievements";
 import HighlightVideos from "../components/HighlightVideos";
 import VideoUpload from "../components/VideoUpload";
+import PhotoGallery from "../components/PhotoGallery";
+import PhotoUpload from "../components/PhotoUpload";
+import ScoutNotes from "../components/ScoutNotes";
+import SimilarPlayers from "../components/SimilarPlayers";
 import PlayerIDCard from "../components/PlayerIDCard";
 
 export default function PlayerProfile({
@@ -27,7 +40,20 @@ export default function PlayerProfile({
   const [videos, setVideos] = useState<VideoRecord[]>([]);
   const [selectedVideo, setSelectedVideo] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [savingWatchlist, setSavingWatchlist] = useState(false); 
+
+  const [photos, setPhotos] = useState<PlayerPhoto[]>([]);
+  const [selectedPhoto, setSelectedPhoto] = useState<File | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+
+  const [achievements, setAchievements] = useState<Achievement[]>([]);
+  const [similarPlayers, setSimilarPlayers] = useState<Player[]>([]);
+
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [isScoutViewer, setIsScoutViewer] = useState(false);
+  const [isOwnProfile, setIsOwnProfile] = useState(false);
+  const [scoutNotes, setScoutNotes] = useState<ScoutNote[]>([]);
+
+  const [savingWatchlist, setSavingWatchlist] = useState(false);
   const [reloadIndex, setReloadIndex] = useState(0);
 
   useEffect(() => {
@@ -46,13 +72,68 @@ export default function PlayerProfile({
 
       setPlayer(data);
 
-      const { data: playerVideos } = await supabase
-        .from("videos")
-        .select("*")
-        .eq("player_id", data.user_id || "")
-        .order("created_at", { ascending: false });
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-      setVideos(isArrayOf(playerVideos, isVideoRecord) ? playerVideos : []);
+      setCurrentUserId(user?.id ?? null);
+      setIsOwnProfile(Boolean(user && data.user_id === user.id));
+      setIsScoutViewer(user?.user_metadata?.account_type === "scout");
+
+      const [videosResult, photosResult, achievementsResult] = await Promise.all([
+        supabase
+          .from("videos")
+          .select("*")
+          .eq("player_id", data.user_id || "")
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("player_photos")
+          .select("*")
+          .eq("player_id", data.user_id || "")
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("achievements")
+          .select("*")
+          .eq("player_id", data.id)
+          .order("year", { ascending: false }),
+      ]);
+
+      setVideos(isArrayOf(videosResult.data, isVideoRecord) ? videosResult.data : []);
+      setPhotos(isArrayOf(photosResult.data, isPlayerPhoto) ? photosResult.data : []);
+      setAchievements(
+        isArrayOf(achievementsResult.data, isAchievement) ? achievementsResult.data : []
+      );
+
+      // Similar players: same position, nationality, or an age within 2
+      // years, excluding this player, capped at 3.
+      if (data.position || data.nationality || data.age != null) {
+        const orClauses: string[] = [];
+        if (data.position) orClauses.push(`position.eq.${data.position}`);
+        if (data.nationality) orClauses.push(`nationality.eq.${data.nationality}`);
+        if (data.age != null) {
+          orClauses.push(`and(age.gte.${data.age - 2},age.lte.${data.age + 2})`);
+        }
+
+        const { data: similar } = await supabase
+          .from("player")
+          .select("*")
+          .neq("id", data.id)
+          .or(orClauses.join(","))
+          .limit(3);
+
+        setSimilarPlayers(isArrayOf(similar, isPlayer) ? similar : []);
+      }
+
+      if (user?.user_metadata?.account_type === "scout") {
+        const { data: notes } = await supabase
+          .from("scout_notes")
+          .select("*")
+          .eq("player_id", data.id)
+          .eq("scout_id", user.id)
+          .order("created_at", { ascending: false });
+
+        setScoutNotes(isArrayOf(notes, isScoutNote) ? notes : []);
+      }
 
       setLoading(false);
     }
@@ -106,9 +187,7 @@ export default function PlayerProfile({
 
     const {
       data: { publicUrl },
-    } = supabase.storage
-      .from("highlight-videos")
-      .getPublicUrl(fileName);
+    } = supabase.storage.from("highlight-videos").getPublicUrl(fileName);
 
     const { error } = await supabase.from("videos").insert({
       player_id: player.user_id,
@@ -122,55 +201,114 @@ export default function PlayerProfile({
 
     setSelectedVideo(null);
     setUploading(false);
-
     setReloadIndex((i) => i + 1);
-  } 
+  }
+
+  async function uploadPhoto() {
+    if (!selectedPhoto || !player || !player.user_id) return;
+
+    setUploadingPhoto(true);
+
+    const fileName = `${Date.now()}-${selectedPhoto.name}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("player-photos")
+      .upload(fileName, selectedPhoto);
+
+    if (uploadError) {
+      alert(uploadError.message);
+      setUploadingPhoto(false);
+      return;
+    }
+
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from("player-photos").getPublicUrl(fileName);
+
+    const { error } = await supabase.from("player_photos").insert({
+      player_id: player.user_id,
+      photo_url: publicUrl,
+    });
+
+    if (error) {
+      alert(error.message);
+    }
+
+    setSelectedPhoto(null);
+    setUploadingPhoto(false);
+    setReloadIndex((i) => i + 1);
+  }
 
   if (loading) {
+    return (
+      <main className="min-h-screen flex items-center justify-center">
+        Loading...
+      </main>
+    );
+  }
+
+  if (!player) {
+    return (
+      <main className="min-h-screen flex items-center justify-center">
+        Player not found.
+      </main>
+    );
+  }
+
   return (
-    <main className="min-h-screen flex items-center justify-center">
-      Loading...
+    <main className="min-h-screen bg-gray-100 py-10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6">
+        <PlayerHeader player={player} />
+
+        <ActionButtons
+          player={player}
+          addToWatchlist={addToWatchlist}
+          savingWatchlist={savingWatchlist}
+        />
+
+        <PlayerStats player={player} />
+
+        <SeasonStats player={player} />
+
+        <ScoutOverview player={player} />
+
+        <CareerHistory player={player} />
+
+        <Achievements achievements={achievements} />
+
+        <HighlightVideos videos={videos} />
+
+        {isOwnProfile && (
+          <VideoUpload
+            setSelectedVideo={setSelectedVideo}
+            uploadVideo={uploadVideo}
+            uploading={uploading}
+          />
+        )}
+
+        <PhotoGallery photos={photos} />
+
+        {isOwnProfile && (
+          <PhotoUpload
+            setSelectedPhoto={setSelectedPhoto}
+            uploadPhoto={uploadPhoto}
+            uploading={uploadingPhoto}
+          />
+        )}
+
+        {isScoutViewer && currentUserId && (
+          <ScoutNotes
+            playerId={player.id}
+            notes={scoutNotes}
+            currentUserId={currentUserId}
+            onNoteAdded={() => setReloadIndex((i) => i + 1)}
+          />
+        )}
+
+        <SimilarPlayers players={similarPlayers} />
+
+        <PlayerIDCard player={player} />
+      </div>
     </main>
   );
-}
-
-if (!player) {
-  return (
-    <main className="min-h-screen flex items-center justify-center">
-      Player not found.
-    </main>
-  );
-}
-
-return (
-  <main className="min-h-screen bg-gray-100 py-10">
-    <div className="max-w-7xl mx-auto space-y-8">
-
-     <PlayerHeader
-  player={player}
-  addToWatchlist={addToWatchlist}
-  savingWatchlist={savingWatchlist}
-/>
-
-      <PlayerStats player={player} />
-
-      <SeasonStats player={player} />
-
-      <CareerHistory player={player} />
-
-      <ScoutOverview player={player} />
-
-      <HighlightVideos videos={videos} />
-
-      <VideoUpload
-        setSelectedVideo={setSelectedVideo}
-        uploadVideo={uploadVideo}
-        uploading={uploading}
-      />
-
-      <PlayerIDCard player={player} />
-
-    </div>
-  </main>
-);
 }

@@ -6,23 +6,7 @@ import Image from "next/image";
 import { supabase } from "../lib/supabase";
 import { isArrayOf, isPlayer } from "../lib/types";
 import type { Player } from "../lib/types";
-import * as Flags from "country-flag-icons/react/3x2";
-
-const FLAG_CODES: Record<string, keyof typeof Flags> = {
-  Japan: "JP",
-  Nigeria: "NG",
-  Ghana: "GH",
-  Cameroon: "CM",
-  "South Africa": "ZA",
-};
-
-function CountryFlag({ country }: { country: string | null }) {
-  if (!country) return null;
-  const code = FLAG_CODES[country.trim()];
-  if (!code) return null;
-  const Flag = Flags[code];
-  return <Flag title={country} className="w-5 h-3.5 rounded-[2px] inline-block" />;
-}
+import { CountryFlag } from "../lib/CountryFlag";
 
 // Same 10-field completeness measure used on the Player Dashboard, kept
 // consistent across the app rather than inventing a second definition.

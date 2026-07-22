@@ -10,12 +10,14 @@ import { supabase } from "../lib/supabase";
 export default function ExpressInterestClient({
   searchParams,
 }: {
-  searchParams: Promise<{ player?: string }>;
+  searchParams: Promise<{ player?: string; type?: string }>;
 }) {
   const params = use(searchParams);
 
   const [playerId, setPlayerId] = useState(params.player || "");
-  const [requestType, setRequestType] = useState("Trial Invitation");
+  const [requestType, setRequestType] = useState(
+    params.type === "contact" ? "Contact Request" : "Trial Invitation"
+  );
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
 
@@ -99,6 +101,7 @@ export default function ExpressInterestClient({
           onChange={(e) => setRequestType(e.target.value)}
           className="w-full border rounded-lg p-3 mt-2 mb-6"
         >
+          <option>Contact Request</option>
           <option>Trial Invitation</option>
           <option>Contract Discussion</option>
           <option>Player Evaluation</option>

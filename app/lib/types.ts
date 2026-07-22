@@ -30,6 +30,36 @@ export interface Player {
   clean_sheets: number | null;
   yellow_cards: number | null;
   red_card: number | null;
+  playing_style: string | null;
+  strengths: string[] | null;
+  secondary_position: string | null;
+  languages_spoken: string[] | null;
+  availability_status: "Available" | "In Contract" | "On Trial" | null;
+}
+
+export interface Achievement {
+  id: number;
+  player_id: number | null;
+  category: "national_team" | "championship" | "individual_award" | "tournament_award";
+  title: string;
+  year: string | null;
+  created_at: string | null;
+}
+
+export interface ScoutNote {
+  id: number;
+  player_id: number | null;
+  scout_id: string | null;
+  note: string;
+  created_at: string | null;
+}
+
+export interface PlayerPhoto {
+  id: number;
+  player_id: string | null;
+  photo_url: string;
+  caption: string | null;
+  created_at: string | null;
 }
 
 export interface CareerHistoryEntry {
@@ -163,6 +193,34 @@ export function isVideoRecord(value: unknown): value is VideoRecord {
     value !== null &&
     "id" in value &&
     "video_url" in value
+  );
+}
+
+export function isAchievement(value: unknown): value is Achievement {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "id" in value &&
+    "category" in value &&
+    "title" in value
+  );
+}
+
+export function isScoutNote(value: unknown): value is ScoutNote {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "id" in value &&
+    "note" in value
+  );
+}
+
+export function isPlayerPhoto(value: unknown): value is PlayerPhoto {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "id" in value &&
+    "photo_url" in value
   );
 }
 
