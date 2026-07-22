@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
+import { isArrayOf, isConversation, isMessage } from "../lib/types";
 import type { Conversation, ConversationWithPlayer, Message, Player } from "../lib/types";
 
 export default function Messages() {
@@ -22,10 +23,9 @@ export default function Messages() {
       const { data, error } = await supabase
         .from("conversations")
         .select("*")
-        .order("created_at", { ascending: false })
-        .returns<Conversation[]>();
+        .order("created_at", { ascending: false });
 
-      if (error || !data) {
+      if (error || !isArrayOf(data, isConversation)) {
         setLoadingConversations(false);
         return;
       }
@@ -39,11 +39,25 @@ export default function Messages() {
         const { data: players } = await supabase
           .from("player")
           .select("id, full_name, photo_url, user_id")
-          .in("id", playerIds)
-          .returns<Pick<Player, "id" | "full_name" | "photo_url" | "user_id">[]>();
+          .in("id", playerIds);
 
-        if (players) {
-          playersById = Object.fromEntries(players.map((p) => [p.id, p]));
+        if (Array.isArray(players)) {
+          playersById = Object.fromEntries(
+            players
+              .filter(
+                (p): p is { id: number; full_name: string | null; photo_url: string | null; user_id: string | null } =>
+                  typeof p === "object" && p !== null && typeof p.id === "number"
+              )
+              .map((p) => [
+                p.id,
+                {
+                  id: p.id,
+                  full_name: p.full_name,
+                  photo_url: p.photo_url,
+                  user_id: p.user_id,
+                },
+              ])
+          );
         }
       }
 
@@ -75,10 +89,9 @@ export default function Messages() {
       .from("messages")
       .select("*")
       .eq("conversation_id", conversationId)
-      .order("created_at", { ascending: true })
-      .returns<Message[]>();
+      .order("created_at", { ascending: true });
 
-    if (!error && data) {
+    if (!error && isArrayOf(data, isMessage)) {
       setMessages(data);
     }
   }
@@ -117,12 +130,11 @@ export default function Messages() {
         message: text,
       })
       .select("id, created_at")
-      .single()
-      .returns<{ id: number; created_at: string | null }>();
+      .single();
 
     setSending(false);
 
-    if (error || !data) {
+    if (error || !data || typeof data.id !== "number") {
       alert(error?.message || "Failed to send message.");
       return;
     }
@@ -132,7 +144,7 @@ export default function Messages() {
       sender_id: currentUserId,
       receiver_id: receiverId,
       message: text,
-      created_at: data.created_at,
+      created_at: typeof data.created_at === "string" ? data.created_at : null,
       conversation_id: selectedConversation.id,
     };
 

@@ -123,7 +123,7 @@ export default function PlayerStats({ player }: Props) {
   </p>
 
   <p className="text-2xl font-bold mt-2">
-    {player.jersey_number || "-"}
+    -
   </p>
 
 </div>

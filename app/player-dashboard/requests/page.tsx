@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/app/lib/supabase";
+import { isArrayOf, isContactRequest } from "@/app/lib/types";
 import type { ContactRequest } from "@/app/lib/types";
 
 export default function PlayerRequests() {
@@ -30,10 +31,9 @@ export default function PlayerRequests() {
         .from("contact_requests")
         .select("*")
         .eq("player_id", player.id)
-        .order("created_at", { ascending: false })
-        .returns<ContactRequest[]>();
+        .order("created_at", { ascending: false });
 
-      setRequests(data || []);
+      setRequests(isArrayOf(data, isContactRequest) ? data : []);
     }
 
     loadRequests();
@@ -44,10 +44,13 @@ export default function PlayerRequests() {
     .from("contact_requests")
     .update({ status })
     .eq("id", id)
-    .select()
-    .returns<ContactRequest[]>();
+    .select();
 
-  if (status === "accepted" && data && data.length > 0) {
+  if (
+    status === "accepted" &&
+    isArrayOf(data, isContactRequest) &&
+    data.length > 0
+  ) {
   const request = data[0];
 
 const { error: conversationError } = await supabase

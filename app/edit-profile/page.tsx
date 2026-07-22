@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { supabase } from "../lib/supabase";
+import { isPlayer } from "../lib/types";
 import type { Player } from "../lib/types";
 
 export default function EditProfile() {
@@ -25,7 +26,7 @@ const [selectedCoverPhoto, setSelectedCoverPhoto] = useState<File | null>(null);
         .eq("user_id", user.id)
         .single();
 
-      if (data) {
+      if (data && isPlayer(data)) {
         setPlayer(data);
       }
     }

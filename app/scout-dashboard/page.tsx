@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "../lib/supabase";
+import { isArrayOf, isPlayer } from "../lib/types";
 import type { Player } from "../lib/types";
 
 export default function ScoutDashboard() { 
@@ -36,10 +37,9 @@ useEffect(() => {
       .from("player")
       .select("*")
       .order("created_at", { ascending: false })
-      .limit(6)
-      .returns<Player[]>();
+      .limit(6);
 
-    if (!error && data) {
+    if (!error && isArrayOf(data, isPlayer)) {
       setPlayers(data);
     }
 

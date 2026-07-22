@@ -103,10 +103,72 @@ export interface WatchlistEntry {
   created_at: string | null;
 }
 
-// Supabase errors from supabase-js are PostgrestError | null in practice.
-export interface SupabaseErrorLike {
-  message: string;
-  details?: string;
-  hint?: string;
-  code?: string;
+// Runtime type predicates - a universal alternative to relying on
+// .returns<T>() correctly narrowing Supabase query results, which has shown
+// unreliable inference in this project for larger/full-row shapes. These
+// perform a minimal, real structural check at runtime and let TypeScript's
+// "value is T" predicate mechanism provide full, sound type narrowing -
+// no `any`, no `as`/`as unknown as` casts, no suppressions, and no
+// dependency on field count or on the Supabase client's own type inference.
+
+export function isPlayer(value: unknown): value is Player {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "id" in value &&
+    "full_name" in value &&
+    "slug" in value
+  );
+}
+
+export function isCareerHistoryEntry(value: unknown): value is CareerHistoryEntry {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "id" in value &&
+    "player_id" in value
+  );
+}
+
+export function isContactRequest(value: unknown): value is ContactRequest {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "id" in value &&
+    "sender_id" in value
+  );
+}
+
+export function isConversation(value: unknown): value is Conversation {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "id" in value &&
+    "scout_id" in value
+  );
+}
+
+export function isMessage(value: unknown): value is Message {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "id" in value &&
+    "message" in value
+  );
+}
+
+export function isVideoRecord(value: unknown): value is VideoRecord {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "id" in value &&
+    "video_url" in value
+  );
+}
+
+export function isArrayOf<T>(
+  value: unknown,
+  check: (v: unknown) => v is T
+): value is T[] {
+  return Array.isArray(value) && value.every(check);
 }

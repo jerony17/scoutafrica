@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "../../lib/supabase";
+import { isArrayOf, isPlayer } from "../../lib/types";
 import type { Player } from "../../lib/types";
 
 export default function WatchlistPage() {
@@ -43,10 +44,9 @@ export default function WatchlistPage() {
       const { data: playerData } = await supabase
         .from("player")
         .select("*")
-        .in("id", playerIds)
-        .returns<Player[]>();
+        .in("id", playerIds);
 
-      setPlayers(playerData || []);
+      setPlayers(isArrayOf(playerData, isPlayer) ? playerData : []);
       setLoading(false);
     }
 

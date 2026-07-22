@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { supabase } from "../lib/supabase";
-import type { CareerHistoryEntry, Player } from "../lib/types";
+import { isArrayOf, isCareerHistoryEntry, isPlayer } from "../lib/types";
+import type { Player } from "../lib/types";
 
 export default function PlayerDashboard() {
   const router = useRouter();
@@ -24,22 +25,23 @@ const [missingFields, setMissingFields] = useState<string[]>([]);
       const { data, error } = await supabase
         .from("career_history")
         .select("*")
-        .eq("player_id", playerId)
-        .returns<CareerHistoryEntry[]>();
+        .eq("player_id", playerId);
 
       if (error) {
         console.error(error);
         return;
       }
 
+      if (!isArrayOf(data, isCareerHistoryEntry)) return;
+
       const totalMatches =
-        data?.reduce((sum, club) => sum + Number(club.appearances || 0), 0) || 0;
+        data.reduce((sum, club) => sum + Number(club.appearances || 0), 0) || 0;
 
       const totalGoals =
-        data?.reduce((sum, club) => sum + Number(club.goals || 0), 0) || 0;
+        data.reduce((sum, club) => sum + Number(club.goals || 0), 0) || 0;
 
       const totalAssists =
-        data?.reduce((sum, club) => sum + Number(club.assists || 0), 0) || 0;
+        data.reduce((sum, club) => sum + Number(club.assists || 0), 0) || 0;
 
       setMatches(totalMatches);
       setGoals(totalGoals);
@@ -71,8 +73,7 @@ const [missingFields, setMissingFields] = useState<string[]>([]);
         .from("player")
         .select("*")
         .eq("user_id", user.id)
-        .maybeSingle()
-        .returns<Player>();
+        .maybeSingle();
 
       if (error) {
         setLoadError(true);
@@ -80,7 +81,7 @@ const [missingFields, setMissingFields] = useState<string[]>([]);
         return;
       }
 
-      if (data) {
+      if (data && isPlayer(data)) {
       setPlayer(data);
       loadPlayerStats(data.id);
 

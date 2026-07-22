@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
+import { isArrayOf, isCareerHistoryEntry } from "../../lib/types";
 import type { CareerHistoryEntry, Player } from "../../lib/types";
 
 export default function CareerHistory() { 
@@ -22,14 +23,13 @@ async function loadCareerHistory(playerId: number) {
   const { data, error } = await supabase
     .from("career_history")
     .select("*")
-    .eq("player_id", playerId)
-    .returns<CareerHistoryEntry[]>();
+    .eq("player_id", playerId);
 
   if (error) {
     console.error(error);
   }
 
-  if (data) {
+  if (isArrayOf(data, isCareerHistoryEntry)) {
     setCareerHistory(data);
   }
 }
@@ -46,11 +46,10 @@ useEffect(() => {
       .from("player")
       .select("id")
       .eq("user_id", user.id)
-      .single()
-      .returns<Pick<Player, "id">>();
+      .single();
 
-    if (data) {
-      setPlayer(data);
+    if (data && typeof data.id === "number") {
+      setPlayer({ id: data.id });
       loadCareerHistory(data.id);
     }
   }

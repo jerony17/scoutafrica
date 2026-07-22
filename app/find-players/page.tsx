@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { supabase } from "../lib/supabase";
+import { isArrayOf, isPlayer } from "../lib/types";
 import type { Player } from "../lib/types";
 import * as Flags from "country-flag-icons/react/3x2";
 
@@ -51,7 +52,7 @@ export default function FindPlayers() {
       if (error) {
         console.error(error);
       } else {
-        setPlayers(data || []);
+        setPlayers(isArrayOf(data, isPlayer) ? data : []);
       }
 
       setLoading(false);

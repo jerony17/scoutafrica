@@ -2,6 +2,7 @@
 
 import { use, useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
+import { isArrayOf, isPlayer, isVideoRecord } from "../../lib/types";
 import type { Player, VideoRecord } from "../../lib/types";
 
 import PlayerHeader from "../components/PlayerHeader";
@@ -35,10 +36,9 @@ export default function PlayerProfile({
         .from("player")
         .select("*")
         .eq("slug", slug)
-        .single()
-        .returns<Player>();
+        .single();
 
-      if (error || !data) {
+      if (error || !data || !isPlayer(data)) {
         console.error(error);
         setLoading(false);
         return;
@@ -50,10 +50,9 @@ export default function PlayerProfile({
         .from("videos")
         .select("*")
         .eq("player_id", data.user_id || "")
-        .order("created_at", { ascending: false })
-        .returns<VideoRecord[]>();
+        .order("created_at", { ascending: false });
 
-      setVideos(playerVideos || []);
+      setVideos(isArrayOf(playerVideos, isVideoRecord) ? playerVideos : []);
 
       setLoading(false);
     }

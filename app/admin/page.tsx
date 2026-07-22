@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../lib/supabase";
+import { isArrayOf, isContactRequest } from "../lib/types";
 import type { ContactRequest } from "../lib/types";
 
 export default function AdminPanel() { 
@@ -37,7 +38,7 @@ export default function AdminPanel() {
         return;
       }
 
-      setRequests(data || []);
+      setRequests(isArrayOf(data, isContactRequest) ? data : []);
     }
 
     async function checkAccess() {

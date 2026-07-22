@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
+import { isArrayOf, isContactRequest } from "../../lib/types";
 import type { ContactRequest } from "../../lib/types";
 
 export default function ContactRequests() {
@@ -14,7 +15,7 @@ export default function ContactRequests() {
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (data) setRequests(data);
+      if (isArrayOf(data, isContactRequest)) setRequests(data);
     }
 
     loadRequests();
