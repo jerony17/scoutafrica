@@ -15,7 +15,7 @@ export default function CareerHistory() {
   const [appearances, setAppearances] = useState("");
   const [goals, setGoals] = useState("");
   const [assists, setAssists] = useState(""); 
-  const [player, setPlayer] = useState<Player | null>(null);
+  const [player, setPlayer] = useState<Pick<Player, "id"> | null>(null);
 const [careerHistory, setCareerHistory] = useState<CareerHistoryEntry[]>([]); 
 
 async function loadCareerHistory(playerId: number) {
@@ -44,10 +44,10 @@ useEffect(() => {
 
     const { data } = await supabase
       .from("player")
-      .select("*")
+      .select("id")
       .eq("user_id", user.id)
       .single()
-      .returns<Player>();
+      .returns<Pick<Player, "id">>();
 
     if (data) {
       setPlayer(data);
