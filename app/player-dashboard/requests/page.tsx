@@ -1,42 +1,43 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/app/lib/supabase";
 import type { ContactRequest } from "@/app/lib/types";
 
 export default function PlayerRequests() {
   const [requests, setRequests] = useState<ContactRequest[]>([]);
-
-  const loadRequests = useCallback(async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) return;
-
-    // Find the logged-in player's database record
-    const { data: player } = await supabase
-      .from("player")
-      .select("id")
-      .eq("user_id", user.id)
-      .single();
-
-    if (!player) return;
-
-    // Load requests for this player
-    const { data } = await supabase
-      .from("contact_requests")
-      .select("*")
-      .eq("player_id", player.id)
-      .order("created_at", { ascending: false })
-      .returns<ContactRequest[]>();
-
-    setRequests(data || []);
-  }, []);
+  const [reloadIndex, setReloadIndex] = useState(0);
 
   useEffect(() => {
+    async function loadRequests() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) return;
+
+      // Find the logged-in player's database record
+      const { data: player } = await supabase
+        .from("player")
+        .select("id")
+        .eq("user_id", user.id)
+        .single();
+
+      if (!player) return;
+
+      // Load requests for this player
+      const { data } = await supabase
+        .from("contact_requests")
+        .select("*")
+        .eq("player_id", player.id)
+        .order("created_at", { ascending: false })
+        .returns<ContactRequest[]>();
+
+      setRequests(data || []);
+    }
+
     loadRequests();
-  }, [loadRequests]);
+  }, [reloadIndex]);
 
   async function updateRequest(id: number, status: string) {
   const { data, error } = await supabase
@@ -63,7 +64,7 @@ const { error: conversationError } = await supabase
 }
 
   if (!error) {
-    loadRequests();
+    setReloadIndex((i) => i + 1);
   }
 }
   return (
