@@ -116,9 +116,9 @@ export default function Messages() {
         conversation_id: selectedConversation.id,
         message: text,
       })
-      .select()
+      .select("id, created_at")
       .single()
-      .returns<Message>();
+      .returns<{ id: number; created_at: string | null }>();
 
     setSending(false);
 
@@ -127,7 +127,16 @@ export default function Messages() {
       return;
     }
 
-    setMessages((prev) => [...prev, data]);
+    const sentMessage: Message = {
+      id: data.id,
+      sender_id: currentUserId,
+      receiver_id: receiverId,
+      message: text,
+      created_at: data.created_at,
+      conversation_id: selectedConversation.id,
+    };
+
+    setMessages((prev) => [...prev, sentMessage]);
     setNewMessage("");
   }
 
