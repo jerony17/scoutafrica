@@ -36,7 +36,7 @@ const [selectedCoverPhoto, setSelectedCoverPhoto] = useState<File | null>(null);
   async function saveProfile() {
     if (!player) return;
 
-    const { data, error } = await supabase
+    const { error } = await supabase
   .from("player")
   .update({
     full_name: player.full_name,
