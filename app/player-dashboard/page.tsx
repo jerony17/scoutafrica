@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { supabase } from "../lib/supabase";
@@ -11,6 +11,7 @@ export default function PlayerDashboard() {
   const [player, setPlayer] = useState<Player | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
+  const [reloadIndex, setReloadIndex] = useState(0);
 
 const [matches, setMatches] = useState(0);
 const [goals, setGoals] = useState(0);
@@ -18,96 +19,96 @@ const [assists, setAssists] = useState(0);
 const [profileComplete, setProfileComplete] = useState(20);
 const [missingFields, setMissingFields] = useState<string[]>([]);
 
-  const loadPlayerStats = useCallback(async (playerId: number) => {
-    const { data, error } = await supabase
-      .from("career_history")
-      .select("*")
-      .eq("player_id", playerId)
-      .returns<CareerHistoryEntry[]>();
-
-    if (error) {
-      console.error(error);
-      return;
-    }
-
-    const totalMatches =
-      data?.reduce((sum, club) => sum + Number(club.appearances || 0), 0) || 0;
-
-    const totalGoals =
-      data?.reduce((sum, club) => sum + Number(club.goals || 0), 0) || 0;
-
-    const totalAssists =
-      data?.reduce((sum, club) => sum + Number(club.assists || 0), 0) || 0;
-
-    setMatches(totalMatches);
-    setGoals(totalGoals);
-    setAssists(totalAssists);
-  }, []);
-
-  const loadPlayer = useCallback(async () => {
-    // Get logged in user
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    // Defense-in-depth: proxy.ts is the primary route guard for this page. This check
-    // exists in case that layer is misconfigured (see Sprint 1A follow-up investigation).
-    // user_metadata.account_type is a UX/routing check only, never a security boundary.
-    if (!user) {
-      router.replace("/signin");
-      return;
-    }
-
-    if (user.user_metadata?.account_type !== "player") {
-      router.replace("/");
-      return;
-    }
-
-    // Find player profile using their auth user_id (not email - email can change
-    // and several player rows have no email at all)
-    const { data, error } = await supabase
-      .from("player")
-      .select("*")
-      .eq("user_id", user.id)
-      .maybeSingle()
-      .returns<Player>();
-
-    if (error) {
-      setLoadError(true);
-      setLoading(false);
-      return;
-    }
-
-    if (data) {
-    setPlayer(data);
-    loadPlayerStats(data.id);
-
-    const fields: { key: keyof Player; label: string }[] = [
-      { key: "full_name", label: "Full name" },
-      { key: "photo_url", label: "Profile photo" },
-      { key: "position", label: "Position" },
-      { key: "current_club", label: "Current club" },
-      { key: "nationality", label: "Nationality" },
-      { key: "age", label: "Age" },
-      { key: "height", label: "Height" },
-      { key: "weight", label: "Weight" },
-      { key: "bio", label: "Bio" },
-      { key: "preferred_foot", label: "Preferred foot" },
-    ];
-
-    const missing = fields.filter((f) => !data[f.key]).map((f) => f.label);
-    const score = (fields.length - missing.length) * (100 / fields.length);
-
-    setMissingFields(missing);
-    setProfileComplete(Math.round(score));
-}
-
-    setLoading(false);
-  }, [router, loadPlayerStats]);
-
   useEffect(() => {
+    async function loadPlayerStats(playerId: number) {
+      const { data, error } = await supabase
+        .from("career_history")
+        .select("*")
+        .eq("player_id", playerId)
+        .returns<CareerHistoryEntry[]>();
+
+      if (error) {
+        console.error(error);
+        return;
+      }
+
+      const totalMatches =
+        data?.reduce((sum, club) => sum + Number(club.appearances || 0), 0) || 0;
+
+      const totalGoals =
+        data?.reduce((sum, club) => sum + Number(club.goals || 0), 0) || 0;
+
+      const totalAssists =
+        data?.reduce((sum, club) => sum + Number(club.assists || 0), 0) || 0;
+
+      setMatches(totalMatches);
+      setGoals(totalGoals);
+      setAssists(totalAssists);
+    }
+
+    async function loadPlayer() {
+      // Get logged in user
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      // Defense-in-depth: proxy.ts is the primary route guard for this page. This check
+      // exists in case that layer is misconfigured (see Sprint 1A follow-up investigation).
+      // user_metadata.account_type is a UX/routing check only, never a security boundary.
+      if (!user) {
+        router.replace("/signin");
+        return;
+      }
+
+      if (user.user_metadata?.account_type !== "player") {
+        router.replace("/");
+        return;
+      }
+
+      // Find player profile using their auth user_id (not email - email can change
+      // and several player rows have no email at all)
+      const { data, error } = await supabase
+        .from("player")
+        .select("*")
+        .eq("user_id", user.id)
+        .maybeSingle()
+        .returns<Player>();
+
+      if (error) {
+        setLoadError(true);
+        setLoading(false);
+        return;
+      }
+
+      if (data) {
+      setPlayer(data);
+      loadPlayerStats(data.id);
+
+      const fields: { key: keyof Player; label: string }[] = [
+        { key: "full_name", label: "Full name" },
+        { key: "photo_url", label: "Profile photo" },
+        { key: "position", label: "Position" },
+        { key: "current_club", label: "Current club" },
+        { key: "nationality", label: "Nationality" },
+        { key: "age", label: "Age" },
+        { key: "height", label: "Height" },
+        { key: "weight", label: "Weight" },
+        { key: "bio", label: "Bio" },
+        { key: "preferred_foot", label: "Preferred foot" },
+      ];
+
+      const missing = fields.filter((f) => !data[f.key]).map((f) => f.label);
+      const score = (fields.length - missing.length) * (100 / fields.length);
+
+      setMissingFields(missing);
+      setProfileComplete(Math.round(score));
+  }
+
+      setLoading(false);
+    }
+
     loadPlayer();
-  }, [loadPlayer]);
+  }, [router, reloadIndex]);
 
   if (loading) {
     return (
@@ -127,7 +128,7 @@ const [missingFields, setMissingFields] = useState<string[]>([]);
           onClick={() => {
             setLoading(true);
             setLoadError(false);
-            loadPlayer();
+            setReloadIndex((i) => i + 1);
           }}
           className="bg-green-600 text-white px-6 py-3 rounded-lg"
         >

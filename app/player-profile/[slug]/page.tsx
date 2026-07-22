@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useCallback, useEffect, useState } from "react";
+import { use, useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import type { Player, VideoRecord } from "../../lib/types";
 
@@ -27,38 +27,39 @@ export default function PlayerProfile({
   const [selectedVideo, setSelectedVideo] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [savingWatchlist, setSavingWatchlist] = useState(false); 
-
-  const loadPlayer = useCallback(async () => {
-    const { data, error } = await supabase
-      .from("player")
-      .select("*")
-      .eq("slug", slug)
-      .single()
-      .returns<Player>();
-
-    if (error || !data) {
-      console.error(error);
-      setLoading(false);
-      return;
-    }
-
-    setPlayer(data);
-
-    const { data: playerVideos } = await supabase
-      .from("videos")
-      .select("*")
-      .eq("player_id", data.user_id || "")
-      .order("created_at", { ascending: false })
-      .returns<VideoRecord[]>();
-
-    setVideos(playerVideos || []);
-
-    setLoading(false);
-  }, [slug]);
+  const [reloadIndex, setReloadIndex] = useState(0);
 
   useEffect(() => {
+    async function loadPlayer() {
+      const { data, error } = await supabase
+        .from("player")
+        .select("*")
+        .eq("slug", slug)
+        .single()
+        .returns<Player>();
+
+      if (error || !data) {
+        console.error(error);
+        setLoading(false);
+        return;
+      }
+
+      setPlayer(data);
+
+      const { data: playerVideos } = await supabase
+        .from("videos")
+        .select("*")
+        .eq("player_id", data.user_id || "")
+        .order("created_at", { ascending: false })
+        .returns<VideoRecord[]>();
+
+      setVideos(playerVideos || []);
+
+      setLoading(false);
+    }
+
     loadPlayer();
-  }, [loadPlayer]);
+  }, [slug, reloadIndex]);
 
   async function addToWatchlist(playerId: number) {
     setSavingWatchlist(true);
@@ -123,7 +124,7 @@ export default function PlayerProfile({
     setSelectedVideo(null);
     setUploading(false);
 
-    loadPlayer();
+    setReloadIndex((i) => i + 1);
   } 
 
   if (loading) {

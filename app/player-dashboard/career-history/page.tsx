@@ -128,7 +128,7 @@ const player_id = player.id;
     </h2>
 
     <p className="text-gray-500 mt-3">
-      Click "Add Club" to start building your football career.
+      Click &quot;Add Club&quot; to start building your football career.
     </p>
   </div>
 
