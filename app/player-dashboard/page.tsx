@@ -76,6 +76,7 @@ const [missingFields, setMissingFields] = useState<string[]>([]);
         .maybeSingle();
 
       if (error) {
+        console.error("player-dashboard: failed to load player row:", error);
         setLoadError(true);
         setLoading(false);
         return;

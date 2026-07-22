@@ -29,6 +29,28 @@ if (!user) {
   return;
 }
 
+// Root-cause fix: this page previously let a signed-in user submit
+// registration multiple times, creating a duplicate player row each time
+// (this is exactly what caused player-dashboard's .maybeSingle() query to
+// start failing - one user_id matched multiple rows). Check first.
+const { data: existingPlayer, error: existingPlayerError } = await supabase
+  .from("player")
+  .select("id")
+  .eq("user_id", user.id)
+  .maybeSingle();
+
+if (existingPlayerError) {
+  console.error("register-player: failed to check for existing player row:", existingPlayerError);
+  alert("Something went wrong checking your account. Please try again.");
+  return;
+}
+
+if (existingPlayer) {
+  alert("You've already registered a player profile. Redirecting to your dashboard.");
+  window.location.href = "/player-dashboard";
+  return;
+}
+
 if (!fullName.trim()) {
   alert("Please enter your full name.");
   return;
