@@ -226,7 +226,7 @@ export default function FindPlayers() {
     </p>
 
     <p className="text-gray-600">
-      {getFlag(player.nationality)}
+      {getFlag(player.nationality || "")}
 <span className="ml-2">{player.nationality}</span>
     </p>
 
