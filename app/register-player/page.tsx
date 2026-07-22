@@ -19,10 +19,14 @@ const [photo, setPhoto] = useState<File | null>(null)
 const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
   e.preventDefault() 
 
+  console.log("[register-player] handleSubmit fired at", new Date().toISOString());
+
 // Get logged in user
 const {
   data: { user },
 } = await supabase.auth.getUser();
+
+console.log("[register-player] user.id:", user?.id);
 
 if (!user) {
   alert("Please sign in first.");
@@ -39,6 +43,11 @@ const { data: existingPlayer, error: existingPlayerError } = await supabase
   .eq("user_id", user.id)
   .maybeSingle();
 
+console.log("[register-player] existing player query result:", {
+  existingPlayer,
+  existingPlayerError,
+});
+
 if (existingPlayerError) {
   console.error("register-player: failed to check for existing player row:", existingPlayerError);
   alert("Something went wrong checking your account. Please try again.");
@@ -46,10 +55,13 @@ if (existingPlayerError) {
 }
 
 if (existingPlayer) {
+  console.log("[register-player] existingPlayer is truthy - should redirect now and NOT reach insert()");
   alert("You've already registered a player profile. Redirecting to your dashboard.");
   window.location.href = "/player-dashboard";
   return;
 }
+
+console.log("[register-player] existingPlayer is falsy - proceeding toward insert()");
 
 if (!fullName.trim()) {
   alert("Please enter your full name.");
@@ -115,6 +127,8 @@ if (photo) {
 }
 
 
+  console.log("[register-player] REACHED insert() - about to insert with user_id:", user.id);
+
   const { error } = await supabase
     .from("player") 
 
@@ -133,6 +147,8 @@ if (photo) {
     slug: slug,
   },
 ])
+
+  console.log("[register-player] insert() result:", { error });
 
   if (error) {
     console.error(error)
