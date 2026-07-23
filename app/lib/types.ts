@@ -266,6 +266,28 @@ export function isPlayerReport(value: unknown): value is PlayerReport {
   );
 }
 
+export interface Notification {
+  id: number;
+  user_id: string;
+  title: string;
+  message: string;
+  type: string | null;
+  related_id: number | null;
+  read: boolean;
+  created_at: string | null;
+}
+
+export function isNotification(value: unknown): value is Notification {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "id" in value &&
+    "title" in value &&
+    "message" in value &&
+    "read" in value
+  );
+}
+
 export function isArrayOf<T>(
   value: unknown,
   check: (v: unknown) => v is T
