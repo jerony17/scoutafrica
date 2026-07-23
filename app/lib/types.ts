@@ -224,6 +224,48 @@ export function isPlayerPhoto(value: unknown): value is PlayerPhoto {
   );
 }
 
+export interface AccountVerification {
+  id: number;
+  user_id: string | null;
+  account_type: "club" | "scout";
+  display_name: string | null;
+  email: string | null;
+  status: "pending" | "verified" | "rejected";
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  created_at: string | null;
+}
+
+export function isAccountVerification(value: unknown): value is AccountVerification {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "id" in value &&
+    "account_type" in value &&
+    "status" in value
+  );
+}
+
+export interface PlayerReport {
+  id: number;
+  player_id: number | null;
+  reporter_id: string | null;
+  reason: string;
+  details: string | null;
+  status: string;
+  created_at: string | null;
+}
+
+export function isPlayerReport(value: unknown): value is PlayerReport {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "id" in value &&
+    "reason" in value &&
+    "status" in value
+  );
+}
+
 export function isArrayOf<T>(
   value: unknown,
   check: (v: unknown) => v is T

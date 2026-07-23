@@ -23,7 +23,7 @@ export default function Signup() {
 
     setLoading(true);
 
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -40,6 +40,27 @@ export default function Signup() {
     if (error) {
       alert(error.message);
       return;
+    }
+
+    // Club and Scout accounts have no profile table of their own (only
+    // player does) - this is the record the Admin Control Center's
+    // verification queue reads from. Best-effort: if there's no active
+    // session yet (email confirmation required), this silently doesn't
+    // insert - the row isn't required for signup itself to succeed, and
+    // account_type is still stored on the auth user either way.
+    if ((accountType === "club" || accountType === "scout") && data.user) {
+      const { error: verificationError } = await supabase
+        .from("account_verifications")
+        .insert({
+          user_id: data.user.id,
+          account_type: accountType,
+          display_name: fullName,
+          email,
+        });
+
+      if (verificationError) {
+        console.error("signup: could not create verification record:", verificationError);
+      }
     }
 
     alert(
