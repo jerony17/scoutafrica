@@ -37,10 +37,7 @@ export default function NotificationBell() {
   }, []);
 
   useEffect(() => {
-    if (!userId) {
-      setNotifications([]);
-      return;
-    }
+    if (!userId) return;
 
     async function loadNotifications() {
       const { data, error } = await supabase
