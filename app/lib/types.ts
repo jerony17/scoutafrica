@@ -96,6 +96,8 @@ export interface Conversation {
   created_at: string | null;
   scout_id: string | null;
   player_id: number | null;
+  last_message_at: string | null;
+  active: boolean;
 }
 
 export interface ConversationWithPlayer extends Conversation {
@@ -116,6 +118,7 @@ export interface Message {
   message: string;
   created_at: string | null;
   conversation_id: number | null;
+  read: boolean;
 }
 
 export interface VideoRecord {

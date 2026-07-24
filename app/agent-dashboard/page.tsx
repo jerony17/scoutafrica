@@ -67,12 +67,20 @@ export default function AgentDashboard() {
           </ul>
         </div>
 
-        <a
-          href="/find-players"
-          className="inline-block bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl font-semibold"
-        >
-          Browse Players Now
-        </a>
+        <div className="flex gap-3 justify-center flex-wrap">
+          <a
+            href="/find-players"
+            className="inline-block bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl font-semibold"
+          >
+            Browse Players Now
+          </a>
+          <a
+            href="/messages"
+            className="inline-block bg-white border border-gray-200 hover:border-green-600 hover:text-green-700 text-gray-700 px-6 py-3 rounded-xl font-semibold"
+          >
+            📨 Messages
+          </a>
+        </div>
       </div>
     </main>
   );

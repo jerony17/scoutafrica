@@ -95,28 +95,19 @@ export default function NotificationBell() {
     if (error) console.error(error);
   }
 
-  // Accept/Decline mirrors the exact same update used on
-  // player-dashboard/requests, so both entry points do the same thing.
+  // Accept/Decline mirrors player-dashboard/requests exactly. Conversation
+  // creation + notifications happen automatically via
+  // trg_create_conversation_on_approval (migration 020) as soon as status
+  // becomes 'accepted' - no client-side insert needed here anymore.
   async function respondToContactRequest(notification: Notification, status: "accepted" | "rejected") {
     if (!notification.related_id) return;
 
     setActing(notification.id);
 
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from("contact_requests")
       .update({ status })
-      .eq("id", notification.related_id)
-      .select();
-
-    if (!error && status === "accepted" && data && data.length > 0) {
-      const request = data[0];
-      const { error: conversationError } = await supabase.from("conversations").insert({
-        request_id: request.id,
-        scout_id: request.sender_id,
-        player_id: request.player_id,
-      });
-      if (conversationError) console.error(conversationError);
-    }
+      .eq("id", notification.related_id);
 
     setActing(null);
 

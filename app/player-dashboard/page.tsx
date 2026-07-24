@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import Image from "next/image";
 import { supabase } from "../lib/supabase";
 import { isArrayOf, isCareerHistoryEntry, isPlayer } from "../lib/types";
@@ -210,6 +211,15 @@ const [missingFields, setMissingFields] = useState<string[]>([]);
 
           </div>
 
+        </div>
+
+        <div className="mb-8">
+          <Link
+            href="/messages"
+            className="inline-block bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-xl font-semibold"
+          >
+            📨 Messages
+          </Link>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">

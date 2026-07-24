@@ -146,7 +146,7 @@ export default function AdminPanel() {
           ))}
         </div>
 
-        <div className="grid sm:grid-cols-3 gap-5 mt-10">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 mt-10">
           <Link
             href="/admin/contact-requests"
             className="bg-black text-white rounded-2xl p-6 hover:bg-gray-800 transition"
@@ -167,6 +167,13 @@ export default function AdminPanel() {
           >
             <p className="font-bold text-lg">Verifications →</p>
             <p className="text-gray-300 text-sm mt-1">Players, clubs, and scouts</p>
+          </Link>
+          <Link
+            href="/admin/conversations"
+            className="bg-black text-white rounded-2xl p-6 hover:bg-gray-800 transition"
+          >
+            <p className="font-bold text-lg">Conversation Monitor →</p>
+            <p className="text-gray-300 text-sm mt-1">Oversight of active conversations</p>
           </Link>
         </div>
       </div>

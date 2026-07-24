@@ -40,31 +40,14 @@ export default function PlayerRequests() {
   }, [reloadIndex]);
 
   async function updateRequest(id: number, status: string) {
-  const { data, error } = await supabase
+  // Conversation creation + notifications now happen automatically via
+  // trg_create_conversation_on_approval (migration 020) whenever status
+  // becomes 'accepted', regardless of whether that change comes from here
+  // or from Admin approval - no client-side insert needed anymore.
+  const { error } = await supabase
     .from("contact_requests")
     .update({ status })
-    .eq("id", id)
-    .select();
-
-  if (
-    status === "accepted" &&
-    isArrayOf(data, isContactRequest) &&
-    data.length > 0
-  ) {
-  const request = data[0];
-
-const { error: conversationError } = await supabase
-  .from("conversations")
-  .insert({
-    request_id: request.id,
-    scout_id: request.sender_id,
-    player_id: request.player_id,
-  });
-
-  if (conversationError) {
-    console.error(conversationError);
-  }
-}
+    .eq("id", id);
 
   if (!error) {
     setReloadIndex((i) => i + 1);
