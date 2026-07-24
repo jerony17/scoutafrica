@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import { supabase } from "../lib/supabase";
 import { isArrayOf, isMessage } from "../lib/types";
 import type { ConversationWithPlayer, Message, Player } from "../lib/types";
@@ -17,6 +18,29 @@ interface RawConversation {
 
 function isRawConversation(value: unknown): value is RawConversation {
   return typeof value === "object" && value !== null && "id" in value && "scout_id" in value;
+}
+
+// Presentation-only helpers - no data fetching, no business logic.
+function getInitials(name: string | null | undefined): string {
+  if (!name) return "?";
+  const parts = name.trim().split(/\s+/);
+  const first = parts[0]?.[0] || "";
+  const last = parts.length > 1 ? parts[parts.length - 1]?.[0] || "" : "";
+  return (first + last).toUpperCase() || "?";
+}
+
+function formatPreviewTime(value: string | null | undefined): string {
+  if (!value) return "";
+  const date = new Date(value);
+  const now = new Date();
+  const sameDay = date.toDateString() === now.toDateString();
+  if (sameDay) {
+    return date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  }
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (date.toDateString() === yesterday.toDateString()) return "Yesterday";
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
 export default function Messages() {
@@ -108,9 +132,10 @@ export default function Messages() {
 
     async function init() {
       const {
-        data: { user },
-      } = await supabase.auth.getUser();
+        data: { session },
+      } = await supabase.auth.getSession();
 
+      const user = session?.user;
       if (!user) return;
 
       setCurrentUserId(user.id);
@@ -250,94 +275,177 @@ export default function Messages() {
   }, [conversations, search, currentUserId]);
 
   return (
-    <main className="min-h-screen bg-gray-50 p-4 sm:p-8">
-      <div className="max-w-7xl mx-auto">
-        <h1 className="text-3xl sm:text-5xl font-bold text-green-700 mb-6 sm:mb-8">
-          Messages
-        </h1>
+    <main className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-8 py-6 sm:py-10">
+        <div className="mb-6 sm:mb-8">
+          <p className="text-green-700 text-xs font-semibold tracking-[0.18em] uppercase mb-1">
+            ScoutAfrica
+          </p>
+          <h1 className="text-2xl sm:text-4xl font-bold text-gray-900">
+            Messages
+          </h1>
+        </div>
 
-        <div className="grid md:grid-cols-3 gap-6">
-          <div className="bg-white rounded-2xl shadow-md p-4 md:h-[70vh] md:overflow-y-auto">
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search conversations..."
-              className="w-full border rounded-lg p-2.5 mb-4 text-sm"
-            />
+        <div className="grid md:grid-cols-[340px_1fr] gap-5 sm:gap-6">
+          {/* Conversation list */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col md:h-[75vh] overflow-hidden">
+            <div className="p-4 border-b border-gray-100">
+              <div className="relative">
+                <svg
+                  className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  aria-hidden="true"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 21l-4.35-4.35M17 10a7 7 0 11-14 0 7 7 0 0114 0z"
+                  />
+                </svg>
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search conversations"
+                  className="w-full border border-gray-200 rounded-xl pl-9 pr-3 py-2.5 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                />
+              </div>
+            </div>
 
-            {loadingConversations && (
-              <p className="text-gray-500 text-sm">Loading conversations...</p>
-            )}
-
-            {!loadingConversations && filteredConversations.length === 0 && (
-              <p className="text-gray-500 text-sm">
-                {conversations.length === 0
-                  ? "No conversations yet. Conversations start once a contact request has been approved."
-                  : "No conversations match your search."}
-              </p>
-            )}
-
-            <div className="space-y-2">
-              {filteredConversations.map((conversation) => {
-                const last = lastMessageByConversation[conversation.id];
-                const unread = unreadByConversation[conversation.id] || 0;
-
-                return (
-                  <div
-                    key={conversation.id}
-                    onClick={() => {
-                      setSelectedConversation(conversation);
-                      loadMessages(conversation.id);
-                    }}
-                    className={`border p-3 rounded-xl cursor-pointer hover:bg-gray-50 transition ${
-                      selectedConversation?.id === conversation.id
-                        ? "border-green-600 bg-green-50"
-                        : "border-gray-100"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="font-semibold text-gray-900 truncate">
-                        {counterpartLabel(conversation)}
-                      </p>
-                      {unread > 0 && (
-                        <span className="bg-green-600 text-white text-[11px] font-bold w-5 h-5 rounded-full flex items-center justify-center shrink-0">
-                          {unread > 9 ? "9+" : unread}
-                        </span>
-                      )}
+            <div className="flex-1 overflow-y-auto">
+              {loadingConversations && (
+                <div className="p-4 space-y-3">
+                  {[0, 1, 2].map((i) => (
+                    <div key={i} className="flex items-center gap-3 animate-pulse">
+                      <div className="w-11 h-11 rounded-full bg-gray-200 shrink-0" />
+                      <div className="flex-1 space-y-2">
+                        <div className="h-3 bg-gray-200 rounded w-2/3" />
+                        <div className="h-2.5 bg-gray-100 rounded w-4/5" />
+                      </div>
                     </div>
-                    {last && (
-                      <p className="text-sm text-gray-500 truncate mt-0.5">{last.text}</p>
-                    )}
-                    {(last?.created_at || conversation.last_message_at) && (
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        {new Date(last?.created_at || conversation.last_message_at || "").toLocaleString()}
-                      </p>
-                    )}
-                  </div>
-                );
-              })}
+                  ))}
+                </div>
+              )}
+
+              {!loadingConversations && filteredConversations.length === 0 && (
+                <p className="text-gray-400 text-sm text-center px-6 py-10">
+                  {conversations.length === 0
+                    ? "No conversations yet. Conversations start once a contact request has been approved."
+                    : "No conversations match your search."}
+                </p>
+              )}
+
+              <div className="divide-y divide-gray-50">
+                {filteredConversations.map((conversation) => {
+                  const last = lastMessageByConversation[conversation.id];
+                  const unread = unreadByConversation[conversation.id] || 0;
+                  const isSelected = selectedConversation?.id === conversation.id;
+                  const label = counterpartLabel(conversation);
+                  const iAmScout = currentUserId === conversation.scout_id;
+                  const avatarUrl = iAmScout ? conversation.player?.photo_url : null;
+
+                  return (
+                    <button
+                      key={conversation.id}
+                      onClick={() => {
+                        setSelectedConversation(conversation);
+                        loadMessages(conversation.id);
+                      }}
+                      className={`w-full text-left flex items-center gap-3 px-4 py-3.5 transition ${
+                        isSelected
+                          ? "bg-green-50 border-l-4 border-green-600 pl-3"
+                          : "border-l-4 border-transparent hover:bg-gray-50"
+                      }`}
+                    >
+                      <div className="relative w-11 h-11 rounded-full overflow-hidden bg-gray-800 shrink-0 flex items-center justify-center">
+                        {avatarUrl ? (
+                          <Image src={avatarUrl} alt={label} fill className="object-cover" />
+                        ) : (
+                          <span className="text-white text-sm font-semibold">
+                            {getInitials(label)}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <p
+                            className={`truncate text-sm ${
+                              unread > 0 ? "font-bold text-gray-900" : "font-medium text-gray-800"
+                            }`}
+                          >
+                            {label}
+                          </p>
+                          <span className="text-[11px] text-gray-400 shrink-0">
+                            {formatPreviewTime(last?.created_at || conversation.last_message_at)}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between gap-2 mt-0.5">
+                          <p
+                            className={`truncate text-xs ${
+                              unread > 0 ? "text-gray-700 font-medium" : "text-gray-400"
+                            }`}
+                          >
+                            {last?.text || "No messages yet"}
+                          </p>
+                          {unread > 0 && (
+                            <span className="bg-green-600 text-white text-[10px] font-bold min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center shrink-0">
+                              {unread > 9 ? "9+" : unread}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
 
-          <div className="md:col-span-2 bg-white rounded-2xl shadow-md p-4 sm:p-6 flex flex-col md:h-[70vh]">
+          {/* Chat thread */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col md:h-[75vh] overflow-hidden">
             {!selectedConversation && (
-              <div className="flex-1 flex items-center justify-center text-gray-500 text-center px-4">
-                Select a conversation to view messages.
+              <div className="flex-1 flex flex-col items-center justify-center text-center px-6 gap-2">
+                <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center text-2xl mb-1">
+                  💬
+                </div>
+                <p className="text-gray-500 font-medium">Select a conversation</p>
+                <p className="text-gray-400 text-sm max-w-xs">
+                  Choose someone from the list to view your ScoutAfrica conversation.
+                </p>
               </div>
             )}
 
             {selectedConversation && (
               <>
-                <div className="flex items-center justify-between border-b border-gray-100 pb-4 mb-4">
-                  <h2 className="text-xl font-bold">
-                    {counterpartLabel(selectedConversation)}
-                  </h2>
-                  <p className="text-xs text-gray-400 italic">Typing indicator coming soon</p>
-                </div>
+                {(() => {
+                  const iAmScout = currentUserId === selectedConversation.scout_id;
+                  const avatarUrl = iAmScout ? selectedConversation.player?.photo_url : null;
+                  const label = counterpartLabel(selectedConversation);
+                  return (
+                    <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-100">
+                      <div className="relative w-10 h-10 rounded-full overflow-hidden bg-gray-800 shrink-0 flex items-center justify-center">
+                        {avatarUrl ? (
+                          <Image src={avatarUrl} alt={label} fill className="object-cover" />
+                        ) : (
+                          <span className="text-white text-xs font-semibold">
+                            {getInitials(label)}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h2 className="font-bold text-gray-900 truncate">{label}</h2>
+                        <p className="text-xs text-gray-400 italic">Typing indicator coming soon</p>
+                      </div>
+                    </div>
+                  );
+                })()}
 
-                <div className="space-y-3 flex-1 overflow-y-auto">
+                <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4 space-y-4 bg-gray-50/50">
                   {messages.length === 0 && (
-                    <p className="text-gray-500 text-sm">
+                    <p className="text-gray-400 text-sm text-center py-10">
                       No messages yet. Say hello!
                     </p>
                   )}
@@ -345,17 +453,28 @@ export default function Messages() {
                   {messages.map((message) => {
                     const isMine = message.sender_id === currentUserId;
                     return (
-                      <div key={message.id} className={isMine ? "flex justify-end" : "flex justify-start"}>
-                        <div
-                          className={
-                            isMine
-                              ? "bg-green-600 text-white p-3 rounded-2xl rounded-br-sm max-w-[80%]"
-                              : "bg-gray-100 p-3 rounded-2xl rounded-bl-sm max-w-[80%]"
-                          }
-                        >
-                          <p>{message.message}</p>
-                          <p className={`text-[10px] mt-1 ${isMine ? "text-green-100" : "text-gray-400"}`}>
-                            {message.created_at ? new Date(message.created_at).toLocaleTimeString() : ""}
+                      <div key={message.id} className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
+                        <div className="max-w-[75%] sm:max-w-[65%]">
+                          <div
+                            className={
+                              isMine
+                                ? "bg-green-600 text-white px-4 py-2.5 rounded-2xl rounded-br-md"
+                                : "bg-white text-gray-800 px-4 py-2.5 rounded-2xl rounded-bl-md border border-gray-100 shadow-sm"
+                            }
+                          >
+                            <p className="text-sm leading-relaxed break-words">{message.message}</p>
+                          </div>
+                          <p
+                            className={`text-[11px] text-gray-400 mt-1 px-1 ${
+                              isMine ? "text-right" : "text-left"
+                            }`}
+                          >
+                            {message.created_at
+                              ? new Date(message.created_at).toLocaleTimeString(undefined, {
+                                  hour: "numeric",
+                                  minute: "2-digit",
+                                })
+                              : ""}
                             {isMine && (message.read ? " · Read" : " · Sent")}
                           </p>
                         </div>
@@ -365,25 +484,34 @@ export default function Messages() {
                   <div ref={messagesEndRef} />
                 </div>
 
-                <div className="flex gap-3 mt-6">
-                  <input
-                    type="text"
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") sendMessage();
-                    }}
-                    placeholder="Type a message..."
-                    className="flex-1 border rounded-lg p-3"
-                  />
+                <div className="p-3 sm:p-4 border-t border-gray-100">
+                  <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-full pl-4 pr-1.5 py-1.5 focus-within:ring-2 focus-within:ring-green-500 focus-within:border-transparent">
+                    <input
+                      type="text"
+                      value={newMessage}
+                      onChange={(e) => setNewMessage(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") sendMessage();
+                      }}
+                      placeholder="Type a message..."
+                      className="flex-1 bg-transparent text-sm py-1.5 focus:outline-none placeholder-gray-400"
+                    />
 
-                  <button
-                    onClick={sendMessage}
-                    disabled={sending || !newMessage.trim()}
-                    className="bg-green-600 text-white px-6 rounded-lg disabled:opacity-50"
-                  >
-                    {sending ? "..." : "Send"}
-                  </button>
+                    <button
+                      onClick={sendMessage}
+                      disabled={sending || !newMessage.trim()}
+                      aria-label="Send message"
+                      className="bg-green-600 hover:bg-green-700 disabled:bg-gray-300 text-white w-9 h-9 rounded-full flex items-center justify-center transition shrink-0"
+                    >
+                      {sending ? (
+                        <span className="w-3.5 h-3.5 border-2 border-white/60 border-t-white rounded-full animate-spin" />
+                      ) : (
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                          <path d="M2.94 2.94a1.5 1.5 0 011.61-.35l12.5 5a1.5 1.5 0 010 2.82l-12.5 5a1.5 1.5 0 01-2.03-1.83L3.9 10 2.52 4.77a1.5 1.5 0 01.42-1.83z" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
                 </div>
               </>
             )}
