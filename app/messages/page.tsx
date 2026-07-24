@@ -138,6 +138,19 @@ export default function Messages() {
       const user = session?.user;
       if (!user) return;
 
+      // Root cause fix: postgres_changes enforces RLS on the Realtime
+      // WebSocket connection itself, which does not automatically inherit
+      // the REST session used by regular .from() queries. Without this,
+      // Realtime treats the connection as unauthenticated, so RLS
+      // (sender_id = auth.uid() OR receiver_id = auth.uid()) silently
+      // blocks every incoming event for both users - matching the exact
+      // symptom reported (sender sees their own message via local state,
+      // the other party never receives it via Realtime).
+      if (session.access_token) {
+        supabase.realtime.setAuth(session.access_token);
+        console.log("[Realtime] Called setAuth() with the current session's access token");
+      }
+
       setCurrentUserId(user.id);
       await loadConversations(user.id);
     }
@@ -172,6 +185,8 @@ export default function Messages() {
   useEffect(() => {
     if (!selectedConversation) return;
 
+    console.log("[Realtime] Creating channel for conversation.id:", selectedConversation.id);
+
     const channel = supabase
       .channel(`conversation-${selectedConversation.id}`)
       .on(
@@ -183,18 +198,32 @@ export default function Messages() {
           filter: `conversation_id=eq.${selectedConversation.id}`,
         },
         (payload) => {
+          console.log("[Realtime] postgres_changes event received. Full payload:", payload);
+          console.log("[Realtime] Current selectedConversation.id at event time:", selectedConversation.id);
+
           const row = payload.new;
           if (isMessage(row)) {
-            setMessages((prev) => (prev.some((m) => m.id === row.id) ? prev : [...prev, row]));
+            console.log("[Realtime] payload.new passed isMessage() check - calling setMessages()");
+            setMessages((prev) => {
+              console.log("[Realtime] message count BEFORE setMessages():", prev.length);
+              const next = prev.some((m) => m.id === row.id) ? prev : [...prev, row];
+              console.log("[Realtime] message count AFTER setMessages():", next.length);
+              return next;
+            });
             if (row.receiver_id === currentUserId) {
               supabase.from("messages").update({ read: true }).eq("id", row.id).then();
             }
+          } else {
+            console.log("[Realtime] payload.new FAILED isMessage() check - setMessages() NOT called. Raw value:", row);
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log("[Realtime] Subscription status changed:", status);
+      });
 
     return () => {
+      console.log("[Realtime] Cleaning up channel for conversation.id:", selectedConversation.id);
       supabase.removeChannel(channel);
     };
   }, [selectedConversation, currentUserId]);
