@@ -58,6 +58,10 @@ export default function Messages() {
   const [unreadByConversation, setUnreadByConversation] = useState<Record<number, number>>({});
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const typingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const typingClearTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastTypingSentRef = useRef(0);
+  const [otherUserTyping, setOtherUserTyping] = useState(false);
 
   useEffect(() => {
     async function loadConversations(userId: string) {
@@ -218,12 +222,39 @@ export default function Messages() {
           }
         }
       )
+      // Typing indicator: ephemeral Broadcast on the same per-conversation
+      // channel already used for messages - nothing is written to the
+      // database. Auto-clears 2.5s after the last "typing" event with no
+      // follow-up, which covers "stopped typing" and "left the
+      // conversation" the same way (no more events arrive either way).
+      .on("broadcast", { event: "typing" }, ({ payload }) => {
+        if (payload?.userId === currentUserId) return;
+
+        setOtherUserTyping(true);
+
+        if (typingClearTimeoutRef.current) clearTimeout(typingClearTimeoutRef.current);
+        typingClearTimeoutRef.current = setTimeout(() => {
+          setOtherUserTyping(false);
+        }, 2500);
+      })
+      .on("broadcast", { event: "stopped_typing" }, ({ payload }) => {
+        if (payload?.userId === currentUserId) return;
+
+        if (typingClearTimeoutRef.current) clearTimeout(typingClearTimeoutRef.current);
+        setOtherUserTyping(false);
+      })
       .subscribe((status) => {
         console.log("[Realtime] Subscription status changed:", status);
       });
 
+    typingChannelRef.current = channel;
+
     return () => {
       console.log("[Realtime] Cleaning up channel for conversation.id:", selectedConversation.id);
+      channel.send({ type: "broadcast", event: "stopped_typing", payload: { userId: currentUserId } });
+      if (typingClearTimeoutRef.current) clearTimeout(typingClearTimeoutRef.current);
+      setOtherUserTyping(false);
+      typingChannelRef.current = null;
       supabase.removeChannel(channel);
     };
   }, [selectedConversation, currentUserId]);
@@ -241,9 +272,29 @@ export default function Messages() {
     return "Scout / Club / Agent";
   }
 
+  function handleTyping() {
+    if (!currentUserId) return;
+
+    const now = Date.now();
+    if (now - lastTypingSentRef.current < 800) return;
+    lastTypingSentRef.current = now;
+
+    typingChannelRef.current?.send({
+      type: "broadcast",
+      event: "typing",
+      payload: { userId: currentUserId },
+    });
+  }
+
   async function sendMessage() {
     const text = newMessage.trim();
     if (!text || !selectedConversation || !currentUserId) return;
+
+    typingChannelRef.current?.send({
+      type: "broadcast",
+      event: "stopped_typing",
+      payload: { userId: currentUserId },
+    });
 
     const iAmScout = currentUserId === selectedConversation.scout_id;
     const receiverId = iAmScout
@@ -466,7 +517,9 @@ export default function Messages() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <h2 className="font-bold text-gray-900 truncate">{label}</h2>
-                        <p className="text-xs text-gray-400 italic">Typing indicator coming soon</p>
+                        <p className="text-xs text-green-600 h-4">
+                          {otherUserTyping ? `${label} is typing...` : ""}
+                        </p>
                       </div>
                     </div>
                   );
@@ -518,7 +571,10 @@ export default function Messages() {
                     <input
                       type="text"
                       value={newMessage}
-                      onChange={(e) => setNewMessage(e.target.value)}
+                      onChange={(e) => {
+                        setNewMessage(e.target.value);
+                        handleTyping();
+                      }}
                       onKeyDown={(e) => {
                         if (e.key === "Enter") sendMessage();
                       }}
