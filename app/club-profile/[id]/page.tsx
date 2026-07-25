@@ -85,7 +85,7 @@ export default function ClubProfilePage({
 
   return (
     <main className="min-h-screen bg-gray-100 pb-12">
-      <div className="relative w-full h-56 sm:h-72 bg-gray-800">
+      <div className="relative w-full h-[340px] rounded-2xl overflow-hidden bg-gray-800">
         {club.cover_photo_url ? (
           <Image src={club.cover_photo_url} alt="Club cover" fill className="object-cover" />
         ) : (
@@ -95,8 +95,8 @@ export default function ClubProfilePage({
       </div>
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6">
-        <div className="-mt-16 flex flex-col sm:flex-row sm:items-end gap-4">
-          <div className="relative w-28 h-28 sm:w-36 sm:h-36 rounded-full border-4 border-white shadow-xl overflow-hidden bg-gray-200 shrink-0">
+        <div className="-mt-[90px] flex flex-col sm:flex-row sm:items-end gap-4">
+          <div className="relative w-[180px] h-[180px] rounded-full border-4 border-white shadow-xl overflow-hidden bg-gray-200 shrink-0">
             {club.logo_url ? (
               <Image src={club.logo_url} alt={club.club_name || "Club"} fill className="object-cover" />
             ) : (

@@ -46,7 +46,7 @@ export default function PlayerHeader({ player }: Props) {
 
   return (
     <div className="mb-10">
-      <div className="relative w-full h-64 sm:h-[420px] rounded-2xl overflow-hidden bg-gray-800">
+      <div className="relative w-full h-[340px] rounded-2xl overflow-hidden bg-gray-800">
         <Image
           src={player.cover_photo_url || "https://images.unsplash.com/photo-1508098682722-e99c643e7485?w=1200"}
           alt="Cover"
@@ -58,8 +58,8 @@ export default function PlayerHeader({ player }: Props) {
 
       <div className="relative px-4 sm:px-10">
         {/* Profile Photo */}
-        <div className="-mt-20 sm:-mt-28 flex flex-col sm:flex-row sm:items-end gap-6">
-          <div className="relative w-32 h-32 sm:w-56 sm:h-56 rounded-full border-4 border-white overflow-hidden shadow-xl bg-white shrink-0">
+        <div className="-mt-[90px] flex flex-col sm:flex-row sm:items-end gap-6">
+          <div className="relative w-[180px] h-[180px] rounded-full border-4 border-white overflow-hidden shadow-xl bg-white shrink-0">
             {player.photo_url ? (
               <Image
                 src={player.photo_url}

@@ -157,7 +157,7 @@ export default function ClubDashboard() {
       <div className="max-w-6xl mx-auto">
         {/* Club info header */}
         <div className="relative rounded-3xl overflow-hidden mb-8 shadow-xl">
-          <div className="relative h-32 sm:h-40 bg-gradient-to-r from-green-600 to-green-800">
+          <div className="relative h-[340px] bg-gradient-to-r from-green-600 to-green-800">
             {clubProfile?.cover_photo_url && (
               <Image src={clubProfile.cover_photo_url} alt="Club cover" fill className="object-cover" />
             )}
@@ -165,12 +165,12 @@ export default function ClubDashboard() {
           </div>
 
           <div className="bg-white px-6 sm:px-8 pb-6 pt-0">
-            <div className="flex flex-wrap items-end gap-4 -mt-10">
-              <div className="relative w-20 h-20 rounded-full border-4 border-white shadow-lg overflow-hidden bg-gray-100 shrink-0">
+            <div className="flex flex-wrap items-end gap-4 -mt-[90px]">
+              <div className="relative w-[180px] h-[180px] rounded-full border-4 border-white shadow-lg overflow-hidden bg-gray-100 shrink-0">
                 {clubProfile?.logo_url ? (
                   <Image src={clubProfile.logo_url} alt="Club logo" fill className="object-cover" />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-3xl bg-gray-800 text-white">
+                  <div className="w-full h-full flex items-center justify-center text-5xl bg-gray-800 text-white">
                     🏟️
                   </div>
                 )}
