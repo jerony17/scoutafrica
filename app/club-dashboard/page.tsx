@@ -92,12 +92,14 @@ export default function ClubDashboard() {
       const verificationRow =
         verification.data && typeof verification.data === "object" ? verification.data : null;
 
+      const computedDisplayName =
+        (profile.data && isClubProfile(profile.data) ? profile.data.club_name : null) ||
+        (verificationRow && "display_name" in verificationRow ? (verificationRow.display_name as string) : null) ||
+        fallbackName ||
+        "Your Club";
+
       setClubInfo({
-        displayName:
-          (profile.data && isClubProfile(profile.data) ? profile.data.club_name : null) ||
-          (verificationRow && "display_name" in verificationRow ? (verificationRow.display_name as string) : null) ||
-          fallbackName ||
-          "Your Club",
+        displayName: computedDisplayName,
         email:
           (verificationRow && "email" in verificationRow ? (verificationRow.email as string) : null) ||
           fallbackEmail ||
@@ -165,8 +167,8 @@ export default function ClubDashboard() {
           </div>
 
           <div className="bg-white px-6 sm:px-8 pb-6 pt-0">
-            <div className="flex flex-wrap items-end gap-4 -mt-[90px]">
-              <div className="relative w-[180px] h-[180px] rounded-full border-4 border-white shadow-lg overflow-hidden bg-gray-100 shrink-0">
+            <div className="flex flex-wrap items-end gap-4">
+              <div className="relative w-[180px] h-[180px] -mt-[90px] rounded-full border-4 border-white shadow-lg overflow-hidden bg-gray-100 shrink-0">
                 {clubProfile?.logo_url ? (
                   <Image src={clubProfile.logo_url} alt="Club logo" fill className="object-cover" />
                 ) : (

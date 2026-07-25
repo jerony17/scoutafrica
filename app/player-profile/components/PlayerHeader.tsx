@@ -58,8 +58,8 @@ export default function PlayerHeader({ player }: Props) {
 
       <div className="relative px-4 sm:px-10">
         {/* Profile Photo */}
-        <div className="-mt-[90px] flex flex-col sm:flex-row sm:items-end gap-6">
-          <div className="relative w-[180px] h-[180px] rounded-full border-4 border-white overflow-hidden shadow-xl bg-white shrink-0">
+        <div className="flex flex-col sm:flex-row sm:items-end gap-6">
+          <div className="relative w-[180px] h-[180px] -mt-[90px] rounded-full border-4 border-white overflow-hidden shadow-xl bg-white shrink-0">
             {player.photo_url ? (
               <Image
                 src={player.photo_url}

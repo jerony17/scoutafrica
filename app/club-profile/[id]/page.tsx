@@ -95,8 +95,8 @@ export default function ClubProfilePage({
       </div>
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6">
-        <div className="-mt-[90px] flex flex-col sm:flex-row sm:items-end gap-4">
-          <div className="relative w-[180px] h-[180px] rounded-full border-4 border-white shadow-xl overflow-hidden bg-gray-200 shrink-0">
+        <div className="flex flex-col sm:flex-row sm:items-end gap-4">
+          <div className="relative w-[180px] h-[180px] -mt-[90px] rounded-full border-4 border-white shadow-xl overflow-hidden bg-gray-200 shrink-0">
             {club.logo_url ? (
               <Image src={club.logo_url} alt={club.club_name || "Club"} fill className="object-cover" />
             ) : (
