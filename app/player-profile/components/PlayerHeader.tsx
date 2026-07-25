@@ -59,7 +59,7 @@ export default function PlayerHeader({ player }: Props) {
 
       <div className="relative px-4 sm:px-10">
         {/* Profile Photo */}
-        <div className="flex flex-col sm:flex-row sm:items-end gap-6">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-6">
           <div className="relative w-[180px] h-[180px] -mt-[90px] rounded-full border-4 border-white overflow-hidden shadow-2xl ring-1 ring-black/5 bg-white shrink-0 transition-transform duration-300 hover:scale-[1.02]">
             {player.photo_url ? (
               <Image
@@ -107,21 +107,24 @@ export default function PlayerHeader({ player }: Props) {
                   {player.availability_status}
                 </span>
               )}
-            </div>
 
-            <p className="text-gray-600 mt-1 flex items-center gap-2 flex-wrap">
-              <span className="font-mono text-sm tracking-wide bg-black/5 px-2 py-0.5 rounded">
+              <span className="font-mono text-xs tracking-wide bg-black/5 text-gray-500 px-2 py-1 rounded">
                 {player.scoutafrica_id || "ID pending"}
               </span>
-              <span>•</span>
-              <span>{player.position || "Position unknown"}</span>
+            </div>
+
+            <div className="mt-2 space-y-1">
+              <p className="text-gray-700 font-medium flex items-center gap-2">
+                <CountryFlag country={player.nationality} />
+                {player.nationality || "Nationality unknown"}
+              </p>
+              <p className="text-gray-700 font-medium flex items-center gap-2">
+                ⚽ {player.position || "Position unknown"}
+              </p>
               {player.current_club && (
-                <>
-                  <span>•</span>
-                  <span>{player.current_club}</span>
-                </>
+                <p className="text-gray-500 text-sm">{player.current_club}</p>
               )}
-            </p>
+            </div>
           </div>
         </div>
 

@@ -6,6 +6,7 @@ import Image from "next/image";
 import { supabase } from "../lib/supabase";
 import { isClubProfile } from "../lib/types";
 import type { ClubProfile } from "../lib/types";
+import { CountryFlag } from "../lib/CountryFlag";
 
 interface ClubInfo {
   displayName: string;
@@ -174,7 +175,7 @@ export default function ClubDashboard() {
           </div>
 
           <div className="bg-white px-6 sm:px-8 pb-6 pt-0">
-            <div className="flex flex-wrap items-end gap-4">
+            <div className="flex flex-wrap items-center gap-4">
               <div className="relative w-[180px] h-[180px] -mt-[90px] rounded-full border-4 border-white shadow-2xl ring-1 ring-black/5 overflow-hidden bg-gray-100 shrink-0 transition-transform duration-300 hover:scale-[1.02]">
                 {clubProfile?.logo_url ? (
                   <Image src={clubProfile.logo_url} alt="Club logo" fill className="object-cover" />
@@ -186,22 +187,29 @@ export default function ClubDashboard() {
               </div>
 
               <div className="min-w-0 flex-1 pb-1">
-                <h1 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight truncate">
-                  {clubInfo?.displayName || "Your Club"}
-                </h1>
-                {clubInfo?.email && (
-                  <p className="text-gray-500 text-sm truncate">{clubInfo.email}</p>
-                )}
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight truncate">
+                    {clubInfo?.displayName || "Your Club"}
+                  </h1>
+                  <a
+                    href="/verification"
+                    className={`text-xs font-semibold px-3 py-1.5 rounded-full transition-all duration-200 ${statusStyle} ${
+                      clubInfo?.status === "verified" ? "hover:shadow-sm" : "hover:underline"
+                    }`}
+                  >
+                    {statusLabel}
+                  </a>
+                </div>
+                <div className="mt-2 space-y-1">
+                  <p className="text-gray-700 font-medium flex items-center gap-2">
+                    <CountryFlag country={clubProfile?.country} />
+                    {clubProfile?.country || "Country not set"}
+                  </p>
+                  <p className="text-gray-700 font-medium flex items-center gap-2">
+                    📍 {clubProfile?.city || "City not set"}
+                  </p>
+                </div>
               </div>
-
-              <a
-                href="/verification"
-                className={`text-xs font-semibold px-3 py-1.5 rounded-full mb-1 transition-all duration-200 ${statusStyle} ${
-                  clubInfo?.status === "verified" ? "hover:shadow-sm" : "hover:underline"
-                }`}
-              >
-                {statusLabel}
-              </a>
 
               <a
                 href="/edit-club-profile"

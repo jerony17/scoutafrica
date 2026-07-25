@@ -102,7 +102,7 @@ export default function ClubProfilePage({
       </div>
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6">
-        <div className="flex flex-col sm:flex-row sm:items-end gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
           <div className="relative w-[180px] h-[180px] -mt-[90px] rounded-full border-4 border-white shadow-2xl ring-1 ring-black/5 overflow-hidden bg-gray-200 shrink-0 transition-transform duration-300 hover:scale-[1.02]">
             {club.logo_url ? (
               <Image src={club.logo_url} alt={club.club_name || "Club"} fill className="object-cover" />
@@ -116,16 +116,25 @@ export default function ClubProfilePage({
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">
                 {club.club_name || "Unnamed Club"}
               </h1>
-              {verified && (
+              {verified ? (
                 <span className="inline-flex items-center gap-1 bg-green-600 text-white text-xs font-semibold px-2.5 py-1 rounded-full">
                   ✓ Verified
                 </span>
+              ) : (
+                <span className="inline-flex items-center bg-gray-100 text-gray-500 text-xs font-semibold px-2.5 py-1 rounded-full">
+                  Not Verified
+                </span>
               )}
             </div>
-            <p className="text-gray-500 flex items-center gap-2 mt-1">
-              <CountryFlag country={club.country} />
-              {[club.city, club.country].filter(Boolean).join(", ") || "Location not provided"}
-            </p>
+            <div className="mt-2 space-y-1">
+              <p className="text-gray-700 font-medium flex items-center gap-2">
+                <CountryFlag country={club.country} />
+                {club.country || "Country not set"}
+              </p>
+              <p className="text-gray-700 font-medium flex items-center gap-2">
+                📍 {club.city || "City not set"}
+              </p>
+            </div>
           </div>
         </div>
 
