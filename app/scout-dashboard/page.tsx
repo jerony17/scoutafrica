@@ -95,20 +95,20 @@ useEffect(() => {
 
   return (
     <main className="min-h-screen bg-gray-50 p-8">
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-7xl mx-auto animate-fade-in">
 
         {/* Welcome Banner */}
-<div className="bg-gradient-to-r from-green-600 to-green-800 text-white rounded-3xl p-8 mb-10 shadow-xl">
+<div className="bg-gradient-to-r from-green-600 to-green-800 text-white rounded-3xl p-8 mb-10 shadow-xl ring-1 ring-black/5">
 
   <div className="flex items-center gap-3 flex-wrap">
-    <h1 className="text-4xl md:text-5xl font-bold">
+    <h1 className="text-4xl md:text-5xl font-bold tracking-tight">
       Welcome back, Scout 👋
     </h1>
     <a
       href="/verification"
-      className={`text-xs font-semibold px-3 py-1 rounded-full ${
+      className={`text-xs font-semibold px-3 py-1.5 rounded-full transition-all duration-200 ${
         verificationStatus === "verified"
-          ? "bg-white/20"
+          ? "bg-white/20 hover:bg-white/25"
           : "bg-white/10 hover:bg-white/20"
       }`}
     >
@@ -134,23 +134,23 @@ useEffect(() => {
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
 
-          <div className="bg-white p-6 rounded-2xl shadow-lg hover:shadow-xl transition">
+          <div className="bg-white p-6 rounded-2xl shadow-sm hover:shadow-lg border border-gray-100 transition-all duration-200 hover:-translate-y-1">
   <h2 className="text-2xl font-bold text-gray-400">Coming Soon</h2>
   <p className="text-gray-600 mt-2">Players Viewed</p>
 </div>
 
-          <div className="bg-white p-6 rounded-2xl shadow-lg hover:shadow-xl transition">
-  <h2 className="text-4xl font-bold text-yellow-500">
+          <div className="bg-white p-6 rounded-2xl shadow-sm hover:shadow-lg border border-gray-100 transition-all duration-200 hover:-translate-y-1">
+  <h2 className="text-4xl font-bold text-yellow-500 tracking-tight">
     {watchlistCount ?? "0"}
   </h2>
   <p className="text-gray-600 mt-2">⭐ Watchlist</p>
 </div>
 
-          <div className="bg-white p-6 rounded-2xl shadow-lg hover:shadow-xl transition">
+          <div className="bg-white p-6 rounded-2xl shadow-sm hover:shadow-lg border border-gray-100 transition-all duration-200 hover:-translate-y-1">
   <h2 className="text-2xl font-bold text-gray-400">Coming Soon</h2>
   <p className="text-gray-600 mt-2">❤️ Favorites</p>
 </div>
-          <div className="bg-white p-6 rounded-2xl shadow-lg hover:shadow-xl transition">
+          <div className="bg-white p-6 rounded-2xl shadow-sm hover:shadow-lg border border-gray-100 transition-all duration-200 hover:-translate-y-1">
   <h2 className="text-2xl font-bold text-gray-400">Coming Soon</h2>
   <p className="text-gray-600 mt-2">Active Trials</p>
 </div>

@@ -69,8 +69,15 @@ export default function ClubProfilePage({
 
   if (loading) {
     return (
-      <main className="min-h-screen flex items-center justify-center">
-        Loading...
+      <main className="min-h-screen bg-gray-100 pb-12">
+        <div className="animate-pulse">
+          <div className="w-full h-[340px] bg-gray-300" />
+          <div className="max-w-4xl mx-auto px-4 sm:px-6">
+            <div className="w-[180px] h-[180px] -mt-[90px] rounded-full bg-gray-300 border-4 border-white" />
+            <div className="h-6 w-56 bg-gray-200 rounded mt-4" />
+            <div className="h-4 w-40 bg-gray-200 rounded mt-2" />
+          </div>
+        </div>
       </main>
     );
   }
@@ -84,10 +91,10 @@ export default function ClubProfilePage({
   }
 
   return (
-    <main className="min-h-screen bg-gray-100 pb-12">
-      <div className="relative w-full h-[340px] rounded-2xl overflow-hidden bg-gray-800">
+    <main className="min-h-screen bg-gray-100 pb-12 animate-fade-in">
+      <div className="relative w-full h-[340px] rounded-2xl overflow-hidden bg-gray-800 shadow-lg ring-1 ring-black/5">
         {club.cover_photo_url ? (
-          <Image src={club.cover_photo_url} alt="Club cover" fill className="object-cover" />
+          <Image src={club.cover_photo_url} alt="Club cover" fill className="object-cover" priority />
         ) : (
           <div className="w-full h-full bg-gradient-to-r from-gray-800 to-gray-900" />
         )}
@@ -96,7 +103,7 @@ export default function ClubProfilePage({
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6">
         <div className="flex flex-col sm:flex-row sm:items-end gap-4">
-          <div className="relative w-[180px] h-[180px] -mt-[90px] rounded-full border-4 border-white shadow-xl overflow-hidden bg-gray-200 shrink-0">
+          <div className="relative w-[180px] h-[180px] -mt-[90px] rounded-full border-4 border-white shadow-2xl ring-1 ring-black/5 overflow-hidden bg-gray-200 shrink-0 transition-transform duration-300 hover:scale-[1.02]">
             {club.logo_url ? (
               <Image src={club.logo_url} alt={club.club_name || "Club"} fill className="object-cover" />
             ) : (
@@ -106,7 +113,7 @@ export default function ClubProfilePage({
 
           <div className="pb-2">
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">
                 {club.club_name || "Unnamed Club"}
               </h1>
               {verified && (
@@ -123,14 +130,14 @@ export default function ClubProfilePage({
         </div>
 
         <div className="grid sm:grid-cols-2 gap-6 mt-8">
-          <div className="bg-white rounded-2xl shadow-sm p-6">
+          <div className="bg-white rounded-2xl shadow-sm hover:shadow-md transition-shadow duration-200 p-6 border border-gray-100">
             <h2 className="font-bold text-lg mb-3">About the Club</h2>
             <p className="text-gray-600 text-sm leading-relaxed whitespace-pre-line">
               {club.description || "This club has not added a description yet."}
             </p>
           </div>
 
-          <div className="bg-white rounded-2xl shadow-sm p-6 space-y-3">
+          <div className="bg-white rounded-2xl shadow-sm hover:shadow-md transition-shadow duration-200 p-6 space-y-3 border border-gray-100">
             <div className="flex justify-between text-sm">
               <span className="text-gray-500">Founded</span>
               <span className="font-medium text-gray-900">{club.founded_year || "—"}</span>
@@ -156,16 +163,19 @@ export default function ClubProfilePage({
         </div>
 
         <div className="grid grid-cols-3 gap-4 mt-6">
-          <div className="bg-white rounded-2xl shadow-sm p-5 text-center">
-            <p className="text-2xl sm:text-3xl font-bold text-green-700">{stats.players_viewed}</p>
+          <div className="bg-white rounded-2xl shadow-sm hover:shadow-md p-5 text-center border border-gray-100 transition-all duration-200 hover:-translate-y-1">
+            <div className="text-2xl mb-1">👀</div>
+            <p className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">{stats.players_viewed}</p>
             <p className="text-xs sm:text-sm text-gray-500 mt-1">Players Viewed</p>
           </div>
-          <div className="bg-white rounded-2xl shadow-sm p-5 text-center">
-            <p className="text-2xl sm:text-3xl font-bold text-green-700">{stats.watchlist_count}</p>
+          <div className="bg-white rounded-2xl shadow-sm hover:shadow-md p-5 text-center border border-gray-100 transition-all duration-200 hover:-translate-y-1">
+            <div className="text-2xl mb-1">⭐</div>
+            <p className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">{stats.watchlist_count}</p>
             <p className="text-xs sm:text-sm text-gray-500 mt-1">Watchlist</p>
           </div>
-          <div className="bg-white rounded-2xl shadow-sm p-5 text-center">
-            <p className="text-2xl sm:text-3xl font-bold text-green-700">{stats.contact_requests_sent}</p>
+          <div className="bg-white rounded-2xl shadow-sm hover:shadow-md p-5 text-center border border-gray-100 transition-all duration-200 hover:-translate-y-1">
+            <div className="text-2xl mb-1">✉️</div>
+            <p className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">{stats.contact_requests_sent}</p>
             <p className="text-xs sm:text-sm text-gray-500 mt-1">Requests Sent</p>
           </div>
         </div>

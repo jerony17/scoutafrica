@@ -45,13 +45,14 @@ export default function PlayerHeader({ player }: Props) {
   const completion = profileCompletion(player);
 
   return (
-    <div className="mb-10">
-      <div className="relative w-full h-[340px] rounded-2xl overflow-hidden bg-gray-800">
+    <div className="mb-10 animate-fade-in">
+      <div className="relative w-full h-[340px] rounded-2xl overflow-hidden bg-gray-800 shadow-lg ring-1 ring-black/5">
         <Image
           src={player.cover_photo_url || "https://images.unsplash.com/photo-1508098682722-e99c643e7485?w=1200"}
           alt="Cover"
           fill
           className="object-cover"
+          priority
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
       </div>
@@ -59,7 +60,7 @@ export default function PlayerHeader({ player }: Props) {
       <div className="relative px-4 sm:px-10">
         {/* Profile Photo */}
         <div className="flex flex-col sm:flex-row sm:items-end gap-6">
-          <div className="relative w-[180px] h-[180px] -mt-[90px] rounded-full border-4 border-white overflow-hidden shadow-xl bg-white shrink-0">
+          <div className="relative w-[180px] h-[180px] -mt-[90px] rounded-full border-4 border-white overflow-hidden shadow-2xl ring-1 ring-black/5 bg-white shrink-0 transition-transform duration-300 hover:scale-[1.02]">
             {player.photo_url ? (
               <Image
                 src={player.photo_url}
@@ -76,7 +77,7 @@ export default function PlayerHeader({ player }: Props) {
 
           <div className="pb-2 flex-1">
             <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-2xl sm:text-4xl font-bold text-gray-900">
+              <h1 className="text-2xl sm:text-4xl font-bold text-gray-900 tracking-tight">
                 {player.full_name || "Unnamed Player"}
               </h1>
 
@@ -126,39 +127,39 @@ export default function PlayerHeader({ player }: Props) {
 
         {/* Key facts strip */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mt-8">
-          <div className="bg-white rounded-xl shadow-sm p-4">
+          <div className="bg-white rounded-xl shadow-sm hover:shadow-md p-4 transition-all duration-200 hover:-translate-y-0.5 border border-gray-100">
             <p className="text-xs text-gray-500 uppercase tracking-wide">Nationality</p>
             <p className="font-semibold text-gray-900 flex items-center gap-2 mt-1">
               <CountryFlag country={player.nationality} />
               {player.nationality || "—"}
             </p>
           </div>
-          <div className="bg-white rounded-xl shadow-sm p-4">
+          <div className="bg-white rounded-xl shadow-sm hover:shadow-md p-4 transition-all duration-200 hover:-translate-y-0.5 border border-gray-100">
             <p className="text-xs text-gray-500 uppercase tracking-wide">Age</p>
             <p className="font-semibold text-gray-900 mt-1">{player.age ?? "—"}</p>
           </div>
-          <div className="bg-white rounded-xl shadow-sm p-4">
+          <div className="bg-white rounded-xl shadow-sm hover:shadow-md p-4 transition-all duration-200 hover:-translate-y-0.5 border border-gray-100">
             <p className="text-xs text-gray-500 uppercase tracking-wide">Height</p>
             <p className="font-semibold text-gray-900 mt-1">
               {player.height ? `${player.height} cm` : "—"}
             </p>
           </div>
-          <div className="bg-white rounded-xl shadow-sm p-4">
+          <div className="bg-white rounded-xl shadow-sm hover:shadow-md p-4 transition-all duration-200 hover:-translate-y-0.5 border border-gray-100">
             <p className="text-xs text-gray-500 uppercase tracking-wide">Weight</p>
             <p className="font-semibold text-gray-900 mt-1">
               {player.weight ? `${player.weight} kg` : "—"}
             </p>
           </div>
-          <div className="bg-white rounded-xl shadow-sm p-4">
+          <div className="bg-white rounded-xl shadow-sm hover:shadow-md p-4 transition-all duration-200 hover:-translate-y-0.5 border border-gray-100">
             <p className="text-xs text-gray-500 uppercase tracking-wide">Preferred Foot</p>
             <p className="font-semibold text-gray-900 mt-1">{player.preferred_foot || "—"}</p>
           </div>
-          <div className="bg-white rounded-xl shadow-sm p-4">
+          <div className="bg-white rounded-xl shadow-sm hover:shadow-md p-4 transition-all duration-200 hover:-translate-y-0.5 border border-gray-100">
             <p className="text-xs text-gray-500 uppercase tracking-wide">Profile</p>
             <div className="flex items-center gap-2 mt-1">
               <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-green-600 rounded-full"
+                  className="h-full bg-gradient-to-r from-green-500 to-green-600 rounded-full transition-all duration-500"
                   style={{ width: `${completion}%` }}
                 />
               </div>

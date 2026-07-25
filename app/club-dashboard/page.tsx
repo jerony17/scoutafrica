@@ -125,8 +125,15 @@ export default function ClubDashboard() {
 
   if (checkingAccess) {
     return (
-      <main className="min-h-screen flex items-center justify-center">
-        Checking access...
+      <main className="min-h-screen bg-gray-50 p-4 sm:p-8">
+        <div className="max-w-6xl mx-auto animate-pulse">
+          <div className="h-[340px] rounded-3xl bg-gray-200 mb-8" />
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 mb-10">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="h-28 rounded-2xl bg-gray-200" />
+            ))}
+          </div>
+        </div>
       </main>
     );
   }
@@ -156,19 +163,19 @@ export default function ClubDashboard() {
 
   return (
     <main className="min-h-screen bg-gray-50 p-4 sm:p-8">
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-6xl mx-auto animate-fade-in">
         {/* Club info header */}
-        <div className="relative rounded-3xl overflow-hidden mb-8 shadow-xl">
+        <div className="relative rounded-3xl overflow-hidden mb-8 shadow-xl ring-1 ring-black/5">
           <div className="relative h-[340px] bg-gradient-to-r from-green-600 to-green-800">
             {clubProfile?.cover_photo_url && (
-              <Image src={clubProfile.cover_photo_url} alt="Club cover" fill className="object-cover" />
+              <Image src={clubProfile.cover_photo_url} alt="Club cover" fill className="object-cover" priority />
             )}
             <div className="absolute inset-0 bg-black/20" />
           </div>
 
           <div className="bg-white px-6 sm:px-8 pb-6 pt-0">
             <div className="flex flex-wrap items-end gap-4">
-              <div className="relative w-[180px] h-[180px] -mt-[90px] rounded-full border-4 border-white shadow-lg overflow-hidden bg-gray-100 shrink-0">
+              <div className="relative w-[180px] h-[180px] -mt-[90px] rounded-full border-4 border-white shadow-2xl ring-1 ring-black/5 overflow-hidden bg-gray-100 shrink-0 transition-transform duration-300 hover:scale-[1.02]">
                 {clubProfile?.logo_url ? (
                   <Image src={clubProfile.logo_url} alt="Club logo" fill className="object-cover" />
                 ) : (
@@ -179,7 +186,7 @@ export default function ClubDashboard() {
               </div>
 
               <div className="min-w-0 flex-1 pb-1">
-                <h1 className="text-xl sm:text-2xl font-bold text-gray-900 truncate">
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight truncate">
                   {clubInfo?.displayName || "Your Club"}
                 </h1>
                 {clubInfo?.email && (
@@ -189,8 +196,8 @@ export default function ClubDashboard() {
 
               <a
                 href="/verification"
-                className={`text-xs font-semibold px-3 py-1 rounded-full mb-1 ${statusStyle} ${
-                  clubInfo?.status === "verified" ? "" : "hover:underline"
+                className={`text-xs font-semibold px-3 py-1.5 rounded-full mb-1 transition-all duration-200 ${statusStyle} ${
+                  clubInfo?.status === "verified" ? "hover:shadow-sm" : "hover:underline"
                 }`}
               >
                 {statusLabel}
@@ -198,7 +205,7 @@ export default function ClubDashboard() {
 
               <a
                 href="/edit-club-profile"
-                className="bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-4 py-2 rounded-xl mb-1"
+                className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white text-sm font-semibold px-5 py-2.5 rounded-xl mb-1 shadow-md hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0"
               >
                 Edit Profile
               </a>
@@ -209,11 +216,20 @@ export default function ClubDashboard() {
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 mb-10">
           {statCards.map((card) => (
-            <div key={card.label} className="bg-white rounded-2xl shadow-sm p-5">
-              <div className="text-2xl mb-2">{card.icon}</div>
-              <p className="text-sm text-gray-500">{card.label}</p>
-              <p className="text-3xl font-bold text-green-700 mt-1">
-                {loadingStats ? "…" : card.value}
+            <div
+              key={card.label}
+              className="bg-white rounded-2xl shadow-sm hover:shadow-lg p-5 sm:p-6 border border-gray-100 transition-all duration-200 hover:-translate-y-1"
+            >
+              <div className="w-11 h-11 rounded-xl bg-green-50 flex items-center justify-center text-2xl mb-3">
+                {card.icon}
+              </div>
+              <p className="text-sm text-gray-500 font-medium">{card.label}</p>
+              <p className="text-3xl font-bold text-gray-900 mt-1 tracking-tight">
+                {loadingStats ? (
+                  <span className="inline-block h-8 w-14 bg-gray-100 rounded animate-pulse" />
+                ) : (
+                  card.value
+                )}
               </p>
             </div>
           ))}
@@ -223,29 +239,38 @@ export default function ClubDashboard() {
         <div className="grid sm:grid-cols-3 gap-5 mb-10">
           <a
             href="/find-players"
-            className="bg-black text-white rounded-2xl p-6 hover:bg-gray-800 transition"
+            className="group bg-black text-white rounded-2xl p-6 shadow-sm hover:shadow-xl transition-all duration-200 hover:-translate-y-1"
           >
-            <p className="font-bold text-lg">Browse Players →</p>
+            <p className="font-bold text-lg flex items-center gap-1">
+              Browse Players
+              <span className="transition-transform duration-200 group-hover:translate-x-1">→</span>
+            </p>
             <p className="text-gray-300 text-sm mt-1">Discover and shortlist talent</p>
           </a>
           <a
             href="/scout-dashboard/watchlist"
-            className="bg-black text-white rounded-2xl p-6 hover:bg-gray-800 transition"
+            className="group bg-black text-white rounded-2xl p-6 shadow-sm hover:shadow-xl transition-all duration-200 hover:-translate-y-1"
           >
-            <p className="font-bold text-lg">Watchlist →</p>
+            <p className="font-bold text-lg flex items-center gap-1">
+              Watchlist
+              <span className="transition-transform duration-200 group-hover:translate-x-1">→</span>
+            </p>
             <p className="text-gray-300 text-sm mt-1">Players you&apos;re tracking</p>
           </a>
           <a
             href="/messages"
-            className="bg-black text-white rounded-2xl p-6 hover:bg-gray-800 transition"
+            className="group bg-black text-white rounded-2xl p-6 shadow-sm hover:shadow-xl transition-all duration-200 hover:-translate-y-1"
           >
-            <p className="font-bold text-lg">Messages →</p>
+            <p className="font-bold text-lg flex items-center gap-1">
+              Messages
+              <span className="transition-transform duration-200 group-hover:translate-x-1">→</span>
+            </p>
             <p className="text-gray-300 text-sm mt-1">Your active conversations</p>
           </a>
         </div>
 
         {/* Coming soon, preserved from the previous placeholder */}
-        <div className="bg-white rounded-2xl shadow-sm p-6 sm:p-8">
+        <div className="bg-white rounded-2xl shadow-sm p-6 sm:p-8 border border-gray-100">
           <h2 className="font-bold text-lg mb-3">More club tools are on the way</h2>
           <ul className="space-y-2 text-gray-600 text-sm">
             <li>✓ Full club profile customization</li>
