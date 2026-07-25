@@ -72,6 +72,16 @@ export default function PlayerProfile({
 
       setPlayer(data);
 
+      // Log this view for the "Total Players Viewed" dashboard stat (scout/club/
+      // agent dashboards) - best-effort, never blocks rendering, and skipped when
+      // players view their own profile (not a meaningful scouting metric).
+      const {
+        data: { user: viewer },
+      } = await supabase.auth.getUser();
+      if (viewer && viewer.id !== data.user_id) {
+        supabase.from("player_views").insert({ viewer_id: viewer.id, player_id: data.id }).then();
+      }
+
       const {
         data: { user },
       } = await supabase.auth.getUser();

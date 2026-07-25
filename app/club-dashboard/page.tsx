@@ -4,9 +4,32 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../lib/supabase";
 
+interface ClubInfo {
+  displayName: string;
+  email: string;
+  status: "pending" | "verified" | "rejected" | null;
+}
+
+type Stats = {
+  playersViewed: number;
+  watchlistCount: number;
+  contactRequestsSent: number;
+  activeConversations: number;
+};
+
+const EMPTY_STATS: Stats = {
+  playersViewed: 0,
+  watchlistCount: 0,
+  contactRequestsSent: 0,
+  activeConversations: 0,
+};
+
 export default function ClubDashboard() {
   const router = useRouter();
   const [checkingAccess, setCheckingAccess] = useState(true);
+  const [clubInfo, setClubInfo] = useState<ClubInfo | null>(null);
+  const [stats, setStats] = useState<Stats>(EMPTY_STATS);
+  const [loadingStats, setLoadingStats] = useState(true);
 
   useEffect(() => {
     // Defense-in-depth: proxy.ts is the primary route guard for this page. This check
@@ -28,6 +51,61 @@ export default function ClubDashboard() {
       }
 
       setCheckingAccess(false);
+      loadDashboard(user.id, user.user_metadata?.full_name, user.email);
+    }
+
+    async function loadDashboard(userId: string, fallbackName: string | undefined, fallbackEmail: string | undefined) {
+      const [verification, views, watchlist, requestsSent, activeConvos] = await Promise.all([
+        supabase
+          .from("account_verifications")
+          .select("display_name, email, status")
+          .eq("user_id", userId)
+          .maybeSingle(),
+        supabase
+          .from("player_views")
+          .select("*", { count: "exact", head: true })
+          .eq("viewer_id", userId),
+        supabase
+          .from("watchlist")
+          .select("*", { count: "exact", head: true })
+          .eq("scout_id", userId),
+        supabase
+          .from("contact_requests")
+          .select("*", { count: "exact", head: true })
+          .eq("sender_id", userId),
+        supabase
+          .from("conversations")
+          .select("*", { count: "exact", head: true })
+          .eq("scout_id", userId)
+          .eq("active", true),
+      ]);
+
+      const verificationRow =
+        verification.data && typeof verification.data === "object" ? verification.data : null;
+
+      setClubInfo({
+        displayName:
+          (verificationRow && "display_name" in verificationRow ? (verificationRow.display_name as string) : null) ||
+          fallbackName ||
+          "Your Club",
+        email:
+          (verificationRow && "email" in verificationRow ? (verificationRow.email as string) : null) ||
+          fallbackEmail ||
+          "",
+        status:
+          verificationRow && "status" in verificationRow
+            ? (verificationRow.status as ClubInfo["status"])
+            : null,
+      });
+
+      setStats({
+        playersViewed: views.count ?? 0,
+        watchlistCount: watchlist.count ?? 0,
+        contactRequestsSent: requestsSent.count ?? 0,
+        activeConversations: activeConvos.count ?? 0,
+      });
+
+      setLoadingStats(false);
     }
 
     checkAccess();
@@ -41,45 +119,93 @@ export default function ClubDashboard() {
     );
   }
 
+  const statCards: { label: string; value: number; icon: string }[] = [
+    { label: "Total Players Viewed", value: stats.playersViewed, icon: "👀" },
+    { label: "Watchlist Count", value: stats.watchlistCount, icon: "⭐" },
+    { label: "Contact Requests Sent", value: stats.contactRequestsSent, icon: "✉️" },
+    { label: "Active Conversations", value: stats.activeConversations, icon: "💬" },
+  ];
+
+  const statusStyle =
+    clubInfo?.status === "verified"
+      ? "bg-green-100 text-green-800"
+      : clubInfo?.status === "rejected"
+        ? "bg-red-100 text-red-700"
+        : "bg-amber-100 text-amber-800";
+
   return (
-    <main className="min-h-screen bg-gray-50 p-4 sm:p-8 flex items-center justify-center">
-      <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-md p-8 sm:p-12 text-center">
-        <div className="text-6xl mb-4">🏟️</div>
-
-        <h1 className="text-3xl sm:text-4xl font-bold text-green-700 mb-4">
-          Club Dashboard - Coming Soon
-        </h1>
-
-        <p className="text-gray-600 max-w-lg mx-auto mb-8">
-          Thanks for registering your club with ScoutAfrica. We&apos;re actively
-          building out full club functionality - including player discovery
-          tools, trial management, and scouting pipelines tailored for
-          organizations. This is coming in an upcoming release.
-        </p>
-
-        <div className="text-left bg-gray-50 rounded-xl p-6 mb-8">
-          <h2 className="font-bold mb-3">What&apos;s coming for clubs:</h2>
-          <ul className="space-y-2 text-gray-600 text-sm">
-            <li>✓ Full club profile and verification</li>
-            <li>✓ Player discovery and shortlisting tools</li>
-            <li>✓ Trial creation and applicant management</li>
-            <li>✓ Direct messaging with scouts and players</li>
-          </ul>
+    <main className="min-h-screen bg-gray-50 p-4 sm:p-8">
+      <div className="max-w-6xl mx-auto">
+        {/* Club info header */}
+        <div className="bg-gradient-to-r from-green-600 to-green-800 text-white rounded-3xl p-6 sm:p-8 mb-8 shadow-xl">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="w-14 h-14 rounded-full bg-white/15 flex items-center justify-center text-2xl shrink-0">
+              🏟️
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-2xl sm:text-3xl font-bold truncate">
+                {clubInfo?.displayName || "Your Club"}
+              </h1>
+              {clubInfo?.email && (
+                <p className="text-green-100 text-sm truncate">{clubInfo.email}</p>
+              )}
+            </div>
+            <span className={`ml-auto text-xs font-semibold px-3 py-1 rounded-full ${statusStyle}`}>
+              {clubInfo?.status === "verified"
+                ? "✓ Verified"
+                : clubInfo?.status === "rejected"
+                  ? "Verification Rejected"
+                  : "Verification Pending"}
+            </span>
+          </div>
         </div>
 
-        <div className="flex gap-3 justify-center flex-wrap">
+        {/* Stats */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 mb-10">
+          {statCards.map((card) => (
+            <div key={card.label} className="bg-white rounded-2xl shadow-sm p-5">
+              <div className="text-2xl mb-2">{card.icon}</div>
+              <p className="text-sm text-gray-500">{card.label}</p>
+              <p className="text-3xl font-bold text-green-700 mt-1">
+                {loadingStats ? "…" : card.value}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        {/* Quick actions */}
+        <div className="grid sm:grid-cols-3 gap-5 mb-10">
           <a
             href="/find-players"
-            className="inline-block bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl font-semibold"
+            className="bg-black text-white rounded-2xl p-6 hover:bg-gray-800 transition"
           >
-            Browse Players Now
+            <p className="font-bold text-lg">Browse Players →</p>
+            <p className="text-gray-300 text-sm mt-1">Discover and shortlist talent</p>
+          </a>
+          <a
+            href="/scout-dashboard/watchlist"
+            className="bg-black text-white rounded-2xl p-6 hover:bg-gray-800 transition"
+          >
+            <p className="font-bold text-lg">Watchlist →</p>
+            <p className="text-gray-300 text-sm mt-1">Players you&apos;re tracking</p>
           </a>
           <a
             href="/messages"
-            className="inline-block bg-white border border-gray-200 hover:border-green-600 hover:text-green-700 text-gray-700 px-6 py-3 rounded-xl font-semibold"
+            className="bg-black text-white rounded-2xl p-6 hover:bg-gray-800 transition"
           >
-            📨 Messages
+            <p className="font-bold text-lg">Messages →</p>
+            <p className="text-gray-300 text-sm mt-1">Your active conversations</p>
           </a>
+        </div>
+
+        {/* Coming soon, preserved from the previous placeholder */}
+        <div className="bg-white rounded-2xl shadow-sm p-6 sm:p-8">
+          <h2 className="font-bold text-lg mb-3">More club tools are on the way</h2>
+          <ul className="space-y-2 text-gray-600 text-sm">
+            <li>✓ Full club profile customization</li>
+            <li>✓ Trial creation and applicant management</li>
+            <li>✓ Scouting pipelines tailored for organizations</li>
+          </ul>
         </div>
       </div>
     </main>
