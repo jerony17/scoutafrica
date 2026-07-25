@@ -42,14 +42,15 @@ export default function ClubProfilePage({
         setClub(profileResult.data);
       }
 
-      setVerified(
-        Boolean(
-          verificationResult.data &&
-            typeof verificationResult.data === "object" &&
-            "status" in verificationResult.data &&
-            verificationResult.data.status === "verified"
-        )
-      );
+      if (
+        verificationResult.data &&
+        typeof verificationResult.data === "object" &&
+        "status" in verificationResult.data
+      ) {
+        const row = verificationResult.data;
+        const rawStatus = row.status as "pending" | "verified" | "rejected";
+        setVerified(rawStatus === "verified");
+      }
 
       if (Array.isArray(statsResult.data) && statsResult.data.length > 0) {
         const row = statsResult.data[0];

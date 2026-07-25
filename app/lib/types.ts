@@ -230,13 +230,42 @@ export function isPlayerPhoto(value: unknown): value is PlayerPhoto {
 export interface AccountVerification {
   id: number;
   user_id: string | null;
-  account_type: "club" | "scout";
+  account_type: "club" | "scout" | "agent" | "academy";
   display_name: string | null;
   email: string | null;
   status: "pending" | "verified" | "rejected";
   reviewed_by: string | null;
   reviewed_at: string | null;
   created_at: string | null;
+  organization_name: string | null;
+  country: string | null;
+  city: string | null;
+  representative_name: string | null;
+  registration_number: string | null;
+  website: string | null;
+  rejection_reason: string | null;
+  verified_by: string | null;
+  verified_at: string | null;
+  updated_at: string | null;
+}
+
+export interface VerificationDocument {
+  id: number;
+  application_id: number;
+  document_type: "business_registration" | "fa_license" | "government_registration" | "supporting";
+  file_name: string;
+  storage_path: string;
+  uploaded_at: string | null;
+}
+
+export function isVerificationDocument(value: unknown): value is VerificationDocument {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "id" in value &&
+    "application_id" in value &&
+    "storage_path" in value
+  );
 }
 
 export function isAccountVerification(value: unknown): value is AccountVerification {

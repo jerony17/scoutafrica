@@ -143,6 +143,15 @@ export default function ClubDashboard() {
         ? "bg-red-100 text-red-700"
         : "bg-amber-100 text-amber-800";
 
+  const statusLabel =
+    clubInfo?.status === "verified"
+      ? "🟢 Verified"
+      : clubInfo?.status === "rejected"
+        ? "⚫ Rejected"
+        : clubInfo?.status === "pending"
+          ? "🟡 Pending Review"
+          : "🔴 Not Verified";
+
   return (
     <main className="min-h-screen bg-gray-50 p-4 sm:p-8">
       <div className="max-w-6xl mx-auto">
@@ -176,13 +185,14 @@ export default function ClubDashboard() {
                 )}
               </div>
 
-              <span className={`text-xs font-semibold px-3 py-1 rounded-full mb-1 ${statusStyle}`}>
-                {clubInfo?.status === "verified"
-                  ? "✓ Verified"
-                  : clubInfo?.status === "rejected"
-                    ? "Verification Rejected"
-                    : "Verification Pending"}
-              </span>
+              <a
+                href="/verification"
+                className={`text-xs font-semibold px-3 py-1 rounded-full mb-1 ${statusStyle} ${
+                  clubInfo?.status === "verified" ? "" : "hover:underline"
+                }`}
+              >
+                {statusLabel}
+              </a>
 
               <a
                 href="/edit-club-profile"

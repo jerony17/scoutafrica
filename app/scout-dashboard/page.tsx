@@ -13,6 +13,9 @@ export default function ScoutDashboard() {
     const [playersLoading, setPlayersLoading] = useState(true);
     const [checkingAccess, setCheckingAccess] = useState(true);
     const [watchlistCount, setWatchlistCount] = useState<number | null>(null);
+    const [verificationStatus, setVerificationStatus] = useState<
+      "pending" | "verified" | "rejected" | null
+    >(null);
 
 // Defense-in-depth: proxy.ts (project-root route guard) is the primary gate for this
 // route. This client-side check exists in case that layer is ever misconfigured or
@@ -29,6 +32,18 @@ useEffect(() => {
 
     if (!error) {
       setWatchlistCount(count ?? 0);
+    }
+  }
+
+  async function loadVerificationStatus(scoutId: string) {
+    const { data } = await supabase
+      .from("account_verifications")
+      .select("status")
+      .eq("user_id", scoutId)
+      .maybeSingle();
+
+    if (data && typeof data === "object" && "status" in data) {
+      setVerificationStatus(data.status as "pending" | "verified" | "rejected");
     }
   }
 
@@ -64,6 +79,7 @@ useEffect(() => {
     setCheckingAccess(false);
     loadPlayers();
     loadWatchlistCount(user.id);
+    loadVerificationStatus(user.id);
   }
 
   checkAccess();
@@ -84,9 +100,27 @@ useEffect(() => {
         {/* Welcome Banner */}
 <div className="bg-gradient-to-r from-green-600 to-green-800 text-white rounded-3xl p-8 mb-10 shadow-xl">
 
-  <h1 className="text-4xl md:text-5xl font-bold">
-    Welcome back, Scout 👋
-  </h1>
+  <div className="flex items-center gap-3 flex-wrap">
+    <h1 className="text-4xl md:text-5xl font-bold">
+      Welcome back, Scout 👋
+    </h1>
+    <a
+      href="/verification"
+      className={`text-xs font-semibold px-3 py-1 rounded-full ${
+        verificationStatus === "verified"
+          ? "bg-white/20"
+          : "bg-white/10 hover:bg-white/20"
+      }`}
+    >
+      {verificationStatus === "verified"
+        ? "🟢 Verified"
+        : verificationStatus === "rejected"
+          ? "⚫ Rejected"
+          : verificationStatus === "pending"
+            ? "🟡 Pending Review"
+            : "🔴 Not Verified"}
+    </a>
+  </div>
 
   <p className="text-xl mt-3">
     Discover. Evaluate. Connect.
