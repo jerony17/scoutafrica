@@ -10,9 +10,31 @@
 -- (player-photos, cover-photos, profile-photos, highlight-videos),
 -- attachments must be participant-only, so RLS on storage.objects is the
 -- real access control, not bucket-level public visibility.
-INSERT INTO storage.buckets (id, name, public, file_size_limit)
-VALUES ('message-files', 'message-files', false, 20971520) -- 20MB
-ON CONFLICT (id) DO NOTHING;
+-- allowed_mime_types enforces the file-type restriction at the storage
+-- layer itself (not just client-side validation in the frontend).
+-- ON CONFLICT DO UPDATE (not DO NOTHING) so this correctly applies even
+-- when the bucket already exists from an earlier run of this migration.
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'message-files',
+  'message-files',
+  false,
+  20971520, -- 20MB
+  ARRAY[
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.ms-powerpoint',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'image/jpeg',
+    'image/png'
+  ]
+)
+ON CONFLICT (id) DO UPDATE
+SET file_size_limit = EXCLUDED.file_size_limit,
+    allowed_mime_types = EXCLUDED.allowed_mime_types;
 
 -- Path convention: {conversation_id}/{filename} - lets the storage policy
 -- check conversation participancy directly from the object path via
