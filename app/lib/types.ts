@@ -311,6 +311,49 @@ export function isMessageAttachment(value: unknown): value is MessageAttachment 
   );
 }
 
+export interface ClubProfile {
+  id: number;
+  user_id: string;
+  club_name: string | null;
+  logo_url: string | null;
+  cover_photo_url: string | null;
+  description: string | null;
+  country: string | null;
+  city: string | null;
+  founded_year: number | null;
+  stadium: string | null;
+  website: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface ClubPrivateInfo {
+  id: number;
+  user_id: string;
+  email: string | null;
+  phone: string | null;
+}
+
+export interface ClubPublicStats {
+  players_viewed: number;
+  watchlist_count: number;
+  contact_requests_sent: number;
+}
+
+export function isClubProfile(value: unknown): value is ClubProfile {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "id" in value &&
+    "user_id" in value &&
+    "club_name" in value
+  );
+}
+
+export function isClubPrivateInfo(value: unknown): value is ClubPrivateInfo {
+  return typeof value === "object" && value !== null && "id" in value && "user_id" in value;
+}
+
 export function isArrayOf<T>(
   value: unknown,
   check: (v: unknown) => v is T

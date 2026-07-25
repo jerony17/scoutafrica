@@ -2,7 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { supabase } from "../lib/supabase";
+import { isClubProfile } from "../lib/types";
+import type { ClubProfile } from "../lib/types";
 
 interface ClubInfo {
   displayName: string;
@@ -28,6 +31,7 @@ export default function ClubDashboard() {
   const router = useRouter();
   const [checkingAccess, setCheckingAccess] = useState(true);
   const [clubInfo, setClubInfo] = useState<ClubInfo | null>(null);
+  const [clubProfile, setClubProfile] = useState<ClubProfile | null>(null);
   const [stats, setStats] = useState<Stats>(EMPTY_STATS);
   const [loadingStats, setLoadingStats] = useState(true);
 
@@ -55,12 +59,13 @@ export default function ClubDashboard() {
     }
 
     async function loadDashboard(userId: string, fallbackName: string | undefined, fallbackEmail: string | undefined) {
-      const [verification, views, watchlist, requestsSent, activeConvos] = await Promise.all([
+      const [verification, profile, views, watchlist, requestsSent, activeConvos] = await Promise.all([
         supabase
           .from("account_verifications")
           .select("display_name, email, status")
           .eq("user_id", userId)
           .maybeSingle(),
+        supabase.from("club_profiles").select("*").eq("user_id", userId).maybeSingle(),
         supabase
           .from("player_views")
           .select("*", { count: "exact", head: true })
@@ -80,11 +85,16 @@ export default function ClubDashboard() {
           .eq("active", true),
       ]);
 
+      if (profile.data && isClubProfile(profile.data)) {
+        setClubProfile(profile.data);
+      }
+
       const verificationRow =
         verification.data && typeof verification.data === "object" ? verification.data : null;
 
       setClubInfo({
         displayName:
+          (profile.data && isClubProfile(profile.data) ? profile.data.club_name : null) ||
           (verificationRow && "display_name" in verificationRow ? (verificationRow.display_name as string) : null) ||
           fallbackName ||
           "Your Club",
@@ -137,26 +147,50 @@ export default function ClubDashboard() {
     <main className="min-h-screen bg-gray-50 p-4 sm:p-8">
       <div className="max-w-6xl mx-auto">
         {/* Club info header */}
-        <div className="bg-gradient-to-r from-green-600 to-green-800 text-white rounded-3xl p-6 sm:p-8 mb-8 shadow-xl">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="w-14 h-14 rounded-full bg-white/15 flex items-center justify-center text-2xl shrink-0">
-              🏟️
+        <div className="relative rounded-3xl overflow-hidden mb-8 shadow-xl">
+          <div className="relative h-32 sm:h-40 bg-gradient-to-r from-green-600 to-green-800">
+            {clubProfile?.cover_photo_url && (
+              <Image src={clubProfile.cover_photo_url} alt="Club cover" fill className="object-cover" />
+            )}
+            <div className="absolute inset-0 bg-black/20" />
+          </div>
+
+          <div className="bg-white px-6 sm:px-8 pb-6 pt-0">
+            <div className="flex flex-wrap items-end gap-4 -mt-10">
+              <div className="relative w-20 h-20 rounded-full border-4 border-white shadow-lg overflow-hidden bg-gray-100 shrink-0">
+                {clubProfile?.logo_url ? (
+                  <Image src={clubProfile.logo_url} alt="Club logo" fill className="object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-3xl bg-gray-800 text-white">
+                    🏟️
+                  </div>
+                )}
+              </div>
+
+              <div className="min-w-0 flex-1 pb-1">
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900 truncate">
+                  {clubInfo?.displayName || "Your Club"}
+                </h1>
+                {clubInfo?.email && (
+                  <p className="text-gray-500 text-sm truncate">{clubInfo.email}</p>
+                )}
+              </div>
+
+              <span className={`text-xs font-semibold px-3 py-1 rounded-full mb-1 ${statusStyle}`}>
+                {clubInfo?.status === "verified"
+                  ? "✓ Verified"
+                  : clubInfo?.status === "rejected"
+                    ? "Verification Rejected"
+                    : "Verification Pending"}
+              </span>
+
+              <a
+                href="/edit-club-profile"
+                className="bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-4 py-2 rounded-xl mb-1"
+              >
+                Edit Profile
+              </a>
             </div>
-            <div className="min-w-0">
-              <h1 className="text-2xl sm:text-3xl font-bold truncate">
-                {clubInfo?.displayName || "Your Club"}
-              </h1>
-              {clubInfo?.email && (
-                <p className="text-green-100 text-sm truncate">{clubInfo.email}</p>
-              )}
-            </div>
-            <span className={`ml-auto text-xs font-semibold px-3 py-1 rounded-full ${statusStyle}`}>
-              {clubInfo?.status === "verified"
-                ? "✓ Verified"
-                : clubInfo?.status === "rejected"
-                  ? "Verification Rejected"
-                  : "Verification Pending"}
-            </span>
           </div>
         </div>
 
