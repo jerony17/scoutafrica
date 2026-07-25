@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { supabase } from "../lib/supabase";
-import { isArrayOf, isMessage } from "../lib/types";
-import type { ConversationWithPlayer, Message, Player } from "../lib/types";
+import { isArrayOf, isMessage, isMessageAttachment } from "../lib/types";
+import type { ConversationWithPlayer, Message, MessageAttachment, Player } from "../lib/types";
 
 interface RawConversation {
   id: number;
@@ -43,6 +43,34 @@ function formatPreviewTime(value: string | null | undefined): string {
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
+const ALLOWED_FILE_TYPES = [
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-powerpoint",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "image/jpeg",
+  "image/png",
+];
+const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024; // 20MB
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function getFileIcon(fileType: string): string {
+  if (fileType.startsWith("image/")) return "🖼️";
+  if (fileType === "application/pdf") return "📄";
+  if (fileType.includes("word")) return "📝";
+  if (fileType.includes("sheet") || fileType.includes("excel")) return "📊";
+  if (fileType.includes("presentation") || fileType.includes("powerpoint")) return "📽️";
+  return "📎";
+}
+
 export default function Messages() {
   const [conversations, setConversations] = useState<ConversationWithPlayer[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<ConversationWithPlayer | null>(null);
@@ -56,6 +84,9 @@ export default function Messages() {
     Record<number, { text: string; created_at: string | null }>
   >({});
   const [unreadByConversation, setUnreadByConversation] = useState<Record<number, number>>({});
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [attachmentsByMessage, setAttachmentsByMessage] = useState<Record<number, MessageAttachment[]>>({});
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -168,6 +199,23 @@ export default function Messages() {
     if (!error && isArrayOf(data, isMessage)) {
       setMessages(data);
 
+      const messageIds = data.map((m) => m.id);
+      if (messageIds.length > 0) {
+        const { data: attachments } = await supabase
+          .from("message_attachments")
+          .select("*")
+          .in("message_id", messageIds);
+
+        if (isArrayOf(attachments, isMessageAttachment)) {
+          const grouped: Record<number, MessageAttachment[]> = {};
+          for (const a of attachments) {
+            grouped[a.message_id] = grouped[a.message_id] || [];
+            grouped[a.message_id].push(a);
+          }
+          setAttachmentsByMessage(grouped);
+        }
+      }
+
       // Mark incoming unread messages as read
       const unreadIncoming = data.filter((m) => m.receiver_id === currentUserId && !m.read);
       if (unreadIncoming.length > 0) {
@@ -213,6 +261,15 @@ export default function Messages() {
             if (row.receiver_id === currentUserId) {
               supabase.from("messages").update({ read: true }).eq("id", row.id).then();
             }
+            supabase
+              .from("message_attachments")
+              .select("*")
+              .eq("message_id", row.id)
+              .then(({ data: attachments }) => {
+                if (isArrayOf(attachments, isMessageAttachment) && attachments.length > 0) {
+                  setAttachmentsByMessage((prev) => ({ ...prev, [row.id]: attachments }));
+                }
+              });
           } else {
             console.log("[Realtime] payload.new FAILED isMessage() check - setMessages() NOT called. Raw value:", row);
           }
@@ -243,7 +300,7 @@ export default function Messages() {
 
   async function sendMessage() {
     const text = newMessage.trim();
-    if (!text || !selectedConversation || !currentUserId) return;
+    if ((!text && !selectedFile) || !selectedConversation || !currentUserId) return;
 
     const iAmScout = currentUserId === selectedConversation.scout_id;
     const receiverId = iAmScout
@@ -263,17 +320,49 @@ export default function Messages() {
         sender_id: currentUserId,
         receiver_id: receiverId,
         conversation_id: selectedConversation.id,
-        message: text,
+        message: text, // empty string is valid - "a message may contain text, a file, or both"
       })
       .select("id, created_at")
       .single();
 
-    setSending(false);
-
     if (error || !data || typeof data.id !== "number") {
+      setSending(false);
       alert(error?.message || "Failed to send message.");
       return;
     }
+
+    let newAttachment: MessageAttachment | null = null;
+
+    if (selectedFile) {
+      const filePath = `${selectedConversation.id}/${Date.now()}-${selectedFile.name}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("message-files")
+        .upload(filePath, selectedFile);
+
+      if (uploadError) {
+        setSending(false);
+        alert(`Message sent, but the file failed to upload: ${uploadError.message}`);
+      } else {
+        const { data: attachmentRow, error: attachmentError } = await supabase
+          .from("message_attachments")
+          .insert({
+            message_id: data.id,
+            file_name: selectedFile.name,
+            file_size: selectedFile.size,
+            file_type: selectedFile.type,
+            storage_path: filePath,
+          })
+          .select("*")
+          .single();
+
+        if (!attachmentError && isMessageAttachment(attachmentRow)) {
+          newAttachment = attachmentRow;
+        }
+      }
+    }
+
+    setSending(false);
 
     const sentMessage: Message = {
       id: data.id,
@@ -286,11 +375,52 @@ export default function Messages() {
     };
 
     setMessages((prev) => (prev.some((m) => m.id === sentMessage.id) ? prev : [...prev, sentMessage]));
+
+    if (newAttachment) {
+      setAttachmentsByMessage((prev) => ({ ...prev, [data.id]: [newAttachment as MessageAttachment] }));
+    }
+
     setNewMessage("");
+    setSelectedFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
     setLastMessageByConversation((prev) => ({
       ...prev,
-      [selectedConversation.id]: { text, created_at: sentMessage.created_at },
+      [selectedConversation.id]: { text: text || `📎 ${selectedFile?.name || "Attachment"}`, created_at: sentMessage.created_at },
     }));
+  }
+
+  function handleFileSelect(file: File | null) {
+    if (!file) {
+      setSelectedFile(null);
+      return;
+    }
+
+    if (!ALLOWED_FILE_TYPES.includes(file.type)) {
+      alert("Unsupported file type. Allowed: PDF, DOC, DOCX, XLSX, PPTX, JPG, JPEG, PNG.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      alert("File is too large. Maximum size is 20MB.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    setSelectedFile(file);
+  }
+
+  async function downloadAttachment(attachment: MessageAttachment) {
+    const { data, error } = await supabase.storage
+      .from("message-files")
+      .createSignedUrl(attachment.storage_path, 60);
+
+    if (error || !data?.signedUrl) {
+      alert("Could not generate a download link for this file.");
+      return;
+    }
+
+    window.open(data.signedUrl, "_blank");
   }
 
   const filteredConversations = useMemo(() => {
@@ -481,6 +611,7 @@ export default function Messages() {
 
                   {messages.map((message) => {
                     const isMine = message.sender_id === currentUserId;
+                    const attachments = attachmentsByMessage[message.id] || [];
                     return (
                       <div key={message.id} className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
                         <div className="max-w-[75%] sm:max-w-[65%]">
@@ -491,7 +622,33 @@ export default function Messages() {
                                 : "bg-white text-gray-800 px-4 py-2.5 rounded-2xl rounded-bl-md border border-gray-100 shadow-sm"
                             }
                           >
-                            <p className="text-sm leading-relaxed break-words">{message.message}</p>
+                            {message.message && (
+                              <p className="text-sm leading-relaxed break-words">{message.message}</p>
+                            )}
+
+                            {attachments.map((attachment) => (
+                              <button
+                                key={attachment.id}
+                                onClick={() => downloadAttachment(attachment)}
+                                className={`flex items-center gap-2 rounded-xl px-3 py-2 mt-2 w-full text-left transition ${
+                                  isMine
+                                    ? "bg-green-700 hover:bg-green-800"
+                                    : "bg-gray-50 hover:bg-gray-100 border border-gray-100"
+                                }`}
+                              >
+                                <span className="text-xl shrink-0">{getFileIcon(attachment.file_type)}</span>
+                                <span className="min-w-0 flex-1">
+                                  <span className="block text-xs font-medium truncate">
+                                    {attachment.file_name}
+                                  </span>
+                                  <span
+                                    className={`block text-[11px] ${isMine ? "text-green-100" : "text-gray-400"}`}
+                                  >
+                                    {formatFileSize(attachment.file_size)}
+                                  </span>
+                                </span>
+                              </button>
+                            ))}
                           </div>
                           <p
                             className={`text-[11px] text-gray-400 mt-1 px-1 ${
@@ -514,7 +671,44 @@ export default function Messages() {
                 </div>
 
                 <div className="p-3 sm:p-4 border-t border-gray-100">
-                  <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-full pl-4 pr-1.5 py-1.5 focus-within:ring-2 focus-within:ring-green-500 focus-within:border-transparent">
+                  {selectedFile && (
+                    <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 mb-2 text-xs">
+                      <span>{getFileIcon(selectedFile.type)}</span>
+                      <span className="flex-1 truncate">{selectedFile.name}</span>
+                      <span className="text-gray-400">{formatFileSize(selectedFile.size)}</span>
+                      <button
+                        onClick={() => handleFileSelect(null)}
+                        aria-label="Remove attachment"
+                        className="text-gray-400 hover:text-gray-600 font-bold px-1"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-full pl-2 pr-1.5 py-1.5 focus-within:ring-2 focus-within:ring-green-500 focus-within:border-transparent">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".pdf,.doc,.docx,.xlsx,.pptx,.jpg,.jpeg,.png"
+                      className="hidden"
+                      onChange={(e) => handleFileSelect(e.target.files?.[0] || null)}
+                    />
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      aria-label="Attach a file"
+                      className="text-gray-400 hover:text-green-700 w-8 h-8 rounded-full flex items-center justify-center transition shrink-0"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
+                        />
+                      </svg>
+                    </button>
+
                     <input
                       type="text"
                       value={newMessage}
@@ -528,7 +722,7 @@ export default function Messages() {
 
                     <button
                       onClick={sendMessage}
-                      disabled={sending || !newMessage.trim()}
+                      disabled={sending || (!newMessage.trim() && !selectedFile)}
                       aria-label="Send message"
                       className="bg-green-600 hover:bg-green-700 disabled:bg-gray-300 text-white w-9 h-9 rounded-full flex items-center justify-center transition shrink-0"
                     >

@@ -291,6 +291,26 @@ export function isNotification(value: unknown): value is Notification {
   );
 }
 
+export interface MessageAttachment {
+  id: number;
+  message_id: number;
+  file_name: string;
+  file_size: number;
+  file_type: string;
+  storage_path: string;
+  created_at: string | null;
+}
+
+export function isMessageAttachment(value: unknown): value is MessageAttachment {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "id" in value &&
+    "message_id" in value &&
+    "storage_path" in value
+  );
+}
+
 export function isArrayOf<T>(
   value: unknown,
   check: (v: unknown) => v is T
