@@ -383,6 +383,61 @@ export function isClubPrivateInfo(value: unknown): value is ClubPrivateInfo {
   return typeof value === "object" && value !== null && "id" in value && "user_id" in value;
 }
 
+export interface Subscription {
+  id: number;
+  user_id: string;
+  account_type: string | null;
+  plan: "premium_monthly" | "premium_annual" | null;
+  billing_cycle: "monthly" | "annual" | null;
+  amount: number | null;
+  currency: string | null;
+  payment_provider: "stripe" | "paystack" | null;
+  payment_method: string | null;
+  transaction_id: string | null;
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
+  paystack_customer_code: string | null;
+  paystack_subscription_code: string | null;
+  status: "free" | "premium" | "pending" | "cancelled" | "expired" | "renewing";
+  started_at: string | null;
+  expires_at: string | null;
+  cancelled_at: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface PaymentHistoryEntry {
+  id: number;
+  subscription_id: number;
+  payment_provider: "stripe" | "paystack";
+  payment_method: string | null;
+  amount: number;
+  currency: string;
+  transaction_reference: string | null;
+  payment_status: "success" | "failed" | "pending" | "refunded";
+  payment_date: string | null;
+}
+
+export function isSubscription(value: unknown): value is Subscription {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "id" in value &&
+    "user_id" in value &&
+    "status" in value
+  );
+}
+
+export function isPaymentHistoryEntry(value: unknown): value is PaymentHistoryEntry {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "id" in value &&
+    "subscription_id" in value &&
+    "payment_status" in value
+  );
+}
+
 export function isArrayOf<T>(
   value: unknown,
   check: (v: unknown) => v is T
