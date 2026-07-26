@@ -3,6 +3,7 @@
 import Image from "next/image";
 import type { Player } from "../../lib/types";
 import { CountryFlag } from "../../lib/CountryFlag";
+import PremiumBadge from "../../components/PremiumBadge";
 
 type Props = {
   player: Player;
@@ -97,6 +98,8 @@ export default function PlayerHeader({ player }: Props) {
                   Verification Pending
                 </span>
               )}
+
+              <PremiumBadge userId={player.user_id} />
 
               {player.availability_status && (
                 <span

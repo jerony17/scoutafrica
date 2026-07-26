@@ -213,12 +213,18 @@ const [missingFields, setMissingFields] = useState<string[]>([]);
 
         </div>
 
-        <div className="mb-8">
+        <div className="mb-8 flex gap-3 flex-wrap">
           <Link
             href="/messages"
             className="inline-block bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-xl font-semibold"
           >
             📨 Messages
+          </Link>
+          <Link
+            href="/subscription"
+            className="inline-block bg-white border border-gray-200 hover:border-amber-400 hover:text-amber-600 text-gray-700 px-5 py-2.5 rounded-xl font-semibold"
+          >
+            ⭐ Subscription
           </Link>
         </div>
 

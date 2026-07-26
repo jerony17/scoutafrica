@@ -7,6 +7,7 @@ import { supabase } from "../lib/supabase";
 import { isClubProfile } from "../lib/types";
 import type { ClubProfile } from "../lib/types";
 import { CountryFlag } from "../lib/CountryFlag";
+import PremiumBadge from "../components/PremiumBadge";
 
 interface ClubInfo {
   displayName: string;
@@ -33,6 +34,7 @@ export default function ClubDashboard() {
   const [checkingAccess, setCheckingAccess] = useState(true);
   const [clubInfo, setClubInfo] = useState<ClubInfo | null>(null);
   const [clubProfile, setClubProfile] = useState<ClubProfile | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const [stats, setStats] = useState<Stats>(EMPTY_STATS);
   const [loadingStats, setLoadingStats] = useState(true);
 
@@ -56,6 +58,7 @@ export default function ClubDashboard() {
       }
 
       setCheckingAccess(false);
+      setUserId(user.id);
       loadDashboard(user.id, user.user_metadata?.full_name, user.email);
     }
 
@@ -199,6 +202,7 @@ export default function ClubDashboard() {
                   >
                     {statusLabel}
                   </a>
+                  <PremiumBadge userId={userId} />
                 </div>
                 <div className="mt-2 space-y-1">
                   <p className="text-gray-700 font-medium flex items-center gap-2">
@@ -244,7 +248,7 @@ export default function ClubDashboard() {
         </div>
 
         {/* Quick actions */}
-        <div className="grid sm:grid-cols-3 gap-5 mb-10">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-10">
           <a
             href="/find-players"
             className="group bg-black text-white rounded-2xl p-6 shadow-sm hover:shadow-xl transition-all duration-200 hover:-translate-y-1"
@@ -274,6 +278,16 @@ export default function ClubDashboard() {
               <span className="transition-transform duration-200 group-hover:translate-x-1">→</span>
             </p>
             <p className="text-gray-300 text-sm mt-1">Your active conversations</p>
+          </a>
+          <a
+            href="/subscription"
+            className="group bg-black text-white rounded-2xl p-6 shadow-sm hover:shadow-xl transition-all duration-200 hover:-translate-y-1"
+          >
+            <p className="font-bold text-lg flex items-center gap-1">
+              Subscription
+              <span className="transition-transform duration-200 group-hover:translate-x-1">→</span>
+            </p>
+            <p className="text-gray-300 text-sm mt-1">⭐ Manage your Premium plan</p>
           </a>
         </div>
 

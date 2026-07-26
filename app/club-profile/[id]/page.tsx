@@ -6,6 +6,7 @@ import { supabase } from "../../lib/supabase";
 import { isClubProfile } from "../../lib/types";
 import type { ClubProfile, ClubPublicStats } from "../../lib/types";
 import { CountryFlag } from "../../lib/CountryFlag";
+import PremiumBadge from "../../components/PremiumBadge";
 
 const EMPTY_STATS: ClubPublicStats = {
   players_viewed: 0,
@@ -125,6 +126,7 @@ export default function ClubProfilePage({
                   Not Verified
                 </span>
               )}
+              <PremiumBadge userId={club.user_id} />
             </div>
             <div className="mt-2 space-y-1">
               <p className="text-gray-700 font-medium flex items-center gap-2">
