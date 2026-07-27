@@ -1,21 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
+import { stripe } from "../../../lib/stripe";
 import { supabaseAdmin } from "../../../lib/supabaseAdmin";
-import type { BillingCycle, SupportedCurrency } from "../../../lib/pricing";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
-// Stripe requires the RAW request body (unparsed) to verify the webhook
-// signature - this is why this route reads request.text() instead of
-// request.json(), and why it must not run through any body-parsing
-// middleware.
+// SECURITY: this route trusts NOTHING from the request body until the
+// signature below is verified against the raw bytes. Everything after
+// that point is guaranteed to have actually come from Stripe.
 export async function POST(request: NextRequest) {
   const rawBody = await request.text();
   const signature = request.headers.get("stripe-signature");
 
   if (!signature) {
-    return NextResponse.json({ error: "Missing signature" }, { status: 400 });
+    return NextResponse.json({ error: "Missing stripe-signature header" }, { status: 400 });
   }
 
   let event: Stripe.Event;
@@ -29,189 +27,208 @@ export async function POST(request: NextRequest) {
 
   try {
     switch (event.type) {
-      case "checkout.session.completed": {
-        const session = event.data.object as Stripe.Checkout.Session;
-        await handleCheckoutCompleted(session);
+      case "checkout.session.completed":
+        await handleCheckoutCompleted(event.data.object as Stripe.Checkout.Session);
         break;
-      }
-      case "invoice.paid": {
-        const invoice = event.data.object as Stripe.Invoice;
-        await handleInvoicePaid(invoice);
+
+      case "customer.subscription.updated":
+        await handleSubscriptionUpdated(event.data.object as Stripe.Subscription);
         break;
-      }
-      case "invoice.payment_failed": {
-        const invoice = event.data.object as Stripe.Invoice;
-        await handleInvoicePaymentFailed(invoice);
+
+      case "customer.subscription.deleted":
+        await handleSubscriptionDeleted(event.data.object as Stripe.Subscription);
         break;
-      }
-      case "customer.subscription.updated": {
-        const subscription = event.data.object as Stripe.Subscription;
-        await handleSubscriptionUpdated(subscription);
+
+      case "invoice.payment_succeeded":
+        await handleInvoicePaymentSucceeded(event.data.object as Stripe.Invoice);
         break;
-      }
-      case "customer.subscription.deleted": {
-        const subscription = event.data.object as Stripe.Subscription;
-        await handleSubscriptionDeleted(subscription);
+
+      case "invoice.payment_failed":
+        await handleInvoicePaymentFailed(event.data.object as Stripe.Invoice);
         break;
-      }
+
       default:
-        // Unhandled event types are intentionally ignored, not errors.
+        // Every other event type is intentionally ignored, not an error.
         break;
     }
 
     return NextResponse.json({ received: true });
   } catch (err) {
-    console.error("Stripe webhook handler error:", err);
-    // Return 500 so Stripe retries - the event was verified as authentic,
-    // this is a transient processing failure on our side.
+    console.error(`Stripe webhook handler failed for ${event.type}:`, err);
+    // 500 tells Stripe to retry - the event was genuinely authentic, this
+    // is a transient failure on our side (e.g. a momentary DB issue).
     return NextResponse.json({ error: "Webhook handler failed" }, { status: 500 });
   }
 }
 
+// === checkout.session.completed ===
+// Fires once, right after the customer completes payment. This is where
+// we learn WHICH ScoutAfrica user just subscribed - via
+// client_reference_id, set when the checkout session was created (see
+// the accompanying change to create-checkout-session/route.ts). Without
+// that, there is no way to link this Stripe event back to a Supabase
+// user at all.
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
-  const userId = session.client_reference_id || session.metadata?.user_id;
-  const billingCycle = session.metadata?.billing_cycle as BillingCycle | undefined;
-  const currency = (session.metadata?.currency as SupportedCurrency | undefined) || "JPY";
-  const amount = Number(session.metadata?.amount || 0);
+  const userId = session.client_reference_id;
 
-  if (!userId || !billingCycle) {
-    console.error("checkout.session.completed missing user_id or billing_cycle in metadata");
+  if (!userId) {
+    console.error(
+      "checkout.session.completed has no client_reference_id - cannot identify the user. " +
+        "Check that create-checkout-session/route.ts sets client_reference_id."
+    );
     return;
   }
 
-  const now = new Date();
-  const expiresAt = new Date(now);
-  if (billingCycle === "monthly") {
-    expiresAt.setMonth(expiresAt.getMonth() + 1);
-  } else {
-    expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+  const customerId = typeof session.customer === "string" ? session.customer : null;
+  const subscriptionId = typeof session.subscription === "string" ? session.subscription : null;
+
+  if (!subscriptionId) {
+    console.error("checkout.session.completed has no subscription id - not a subscription checkout?");
+    return;
   }
 
-  const { data: subscriptionRow, error } = await supabaseAdmin
+  // Retrieve the full subscription to get the price ID and the real
+  // current_period_end - neither is present on the checkout session
+  // object itself.
+  const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+  const priceId = subscription.items.data[0]?.price.id || null;
+  const currentPeriodEnd = new Date(subscription.items.data[0].current_period_end * 1000);
+
+  const { error } = await supabaseAdmin
     .from("subscriptions")
     .upsert(
       {
         user_id: userId,
-        plan: billingCycle === "monthly" ? "premium_monthly" : "premium_annual",
-        billing_cycle: billingCycle,
-        amount,
-        currency,
-        payment_provider: "stripe",
-        payment_method: "card",
-        transaction_id: typeof session.subscription === "string" ? session.subscription : null,
-        stripe_customer_id: typeof session.customer === "string" ? session.customer : null,
-        stripe_subscription_id: typeof session.subscription === "string" ? session.subscription : null,
-        status: "premium",
-        started_at: now.toISOString(),
-        expires_at: expiresAt.toISOString(),
+        status: "premium", // matches the existing, already-tested is_user_premium() check -
+                            // NOT "active", to avoid silently breaking the Premium badge and
+                            // existing access checks that already look for this exact value
+        stripe_customer_id: customerId,
+        stripe_subscription_id: subscriptionId,
+        price_id: priceId,
+        started_at: new Date().toISOString(),
+        expires_at: currentPeriodEnd.toISOString(), // this column already IS "current_period_end"
         cancelled_at: null,
-        updated_at: now.toISOString(),
+        updated_at: new Date().toISOString(),
       },
       { onConflict: "user_id" }
-    )
-    .select("id")
-    .single();
+    );
 
   if (error) {
     console.error("Failed to upsert subscription on checkout completion:", error);
-    return;
+    throw error; // triggers the 500 -> Stripe retry path in the outer catch
   }
-
-  await supabaseAdmin.from("payment_history").insert({
-    subscription_id: subscriptionRow.id,
-    payment_provider: "stripe",
-    payment_method: "card",
-    amount,
-    currency,
-    transaction_reference: session.id,
-    payment_status: "success",
-    payment_date: now.toISOString(),
-  });
 }
 
-// Recurring renewal payments (month 2, 3, ... or year 2, 3, ...)
-async function handleInvoicePaid(invoice: Stripe.Invoice) {
-  const subscriptionId =
-    typeof invoice.subscription === "string" ? invoice.subscription : null;
-  if (!subscriptionId) return;
-
-  const { data: existing } = await supabaseAdmin
-    .from("subscriptions")
-    .select("id, user_id, billing_cycle, currency")
-    .eq("stripe_subscription_id", subscriptionId)
-    .maybeSingle();
-
-  if (!existing) return;
-
-  // Skip the very first invoice - handleCheckoutCompleted already logged it.
-  if (invoice.billing_reason === "subscription_create") return;
-
-  const now = new Date();
-  const expiresAt = new Date(now);
-  if (existing.billing_cycle === "monthly") {
-    expiresAt.setMonth(expiresAt.getMonth() + 1);
-  } else {
-    expiresAt.setFullYear(expiresAt.getFullYear() + 1);
-  }
-
-  await supabaseAdmin
-    .from("subscriptions")
-    .update({ status: "premium", expires_at: expiresAt.toISOString(), updated_at: now.toISOString() })
-    .eq("id", existing.id);
-
-  await supabaseAdmin.from("payment_history").insert({
-    subscription_id: existing.id,
-    payment_provider: "stripe",
-    payment_method: "card",
-    amount: (invoice.amount_paid || 0) / (existing.currency === "JPY" ? 1 : 100),
-    currency: existing.currency,
-    transaction_reference: invoice.id,
-    payment_status: "success",
-    payment_date: now.toISOString(),
-  });
-}
-
-async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
-  const subscriptionId =
-    typeof invoice.subscription === "string" ? invoice.subscription : null;
-  if (!subscriptionId) return;
-
-  const { data: existing } = await supabaseAdmin
-    .from("subscriptions")
-    .select("id, currency")
-    .eq("stripe_subscription_id", subscriptionId)
-    .maybeSingle();
-
-  if (!existing) return;
-
-  await supabaseAdmin.from("payment_history").insert({
-    subscription_id: existing.id,
-    payment_provider: "stripe",
-    payment_method: "card",
-    amount: (invoice.amount_due || 0) / (existing.currency === "JPY" ? 1 : 100),
-    currency: existing.currency,
-    transaction_reference: invoice.id,
-    payment_status: "failed",
-    payment_date: new Date().toISOString(),
-  });
-}
-
+// === customer.subscription.updated ===
+// Fires on renewals, plan changes, and Stripe's own retry-scheduling
+// changes. Looks the row up by stripe_customer_id, since this event
+// doesn't carry a Supabase user_id directly.
 async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
-  const status = subscription.cancel_at_period_end ? "renewing" : "premium";
+  const customerId = typeof subscription.customer === "string" ? subscription.customer : null;
+  if (!customerId) return;
 
-  await supabaseAdmin
+  const priceId = subscription.items.data[0]?.price.id || null;
+  const currentPeriodEnd = new Date(subscription.items.data[0].current_period_end * 1000);
+
+  const status = subscription.cancel_at_period_end
+    ? "renewing" // still premium, but will not renew again
+    : subscription.status === "active"
+      ? "premium"
+      : subscription.status === "past_due"
+        ? "past_due"
+        : "premium";
+
+  const { error } = await supabaseAdmin
     .from("subscriptions")
-    .update({ status, updated_at: new Date().toISOString() })
-    .eq("stripe_subscription_id", subscription.id);
+    .update({
+      status,
+      price_id: priceId,
+      expires_at: currentPeriodEnd.toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("stripe_customer_id", customerId);
+
+  if (error) {
+    console.error("Failed to update subscription on customer.subscription.updated:", error);
+    throw error;
+  }
 }
 
+// === customer.subscription.deleted ===
+// Fires when a subscription is actually cancelled (immediately, or at
+// the end of the period the customer already paid for).
 async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
-  await supabaseAdmin
+  const customerId = typeof subscription.customer === "string" ? subscription.customer : null;
+  if (!customerId) return;
+
+  const { error } = await supabaseAdmin
     .from("subscriptions")
     .update({
       status: "cancelled",
       cancelled_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })
-    .eq("stripe_subscription_id", subscription.id);
+    .eq("stripe_customer_id", customerId);
+
+  if (error) {
+    console.error("Failed to update subscription on customer.subscription.deleted:", error);
+    throw error;
+  }
+}
+
+// === invoice.payment_succeeded ===
+// Fires on the initial invoice AND every successful renewal. Keeps
+// status as premium (in case it had drifted to past_due after a
+// previous failed attempt that has now succeeded) and refreshes the
+// expiry date.
+async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
+  const customerId = typeof invoice.customer === "string" ? invoice.customer : null;
+  if (!customerId) return;
+
+  const subscriptionId =
+    typeof invoice.parent?.subscription_details?.subscription === "string"
+      ? invoice.parent.subscription_details.subscription
+      : null;
+
+  let currentPeriodEnd: string | undefined;
+  if (subscriptionId) {
+    const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+    currentPeriodEnd = new Date(subscription.items.data[0].current_period_end * 1000).toISOString();
+  }
+
+  const { error } = await supabaseAdmin
+    .from("subscriptions")
+    .update({
+      status: "premium",
+      ...(currentPeriodEnd ? { expires_at: currentPeriodEnd } : {}),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("stripe_customer_id", customerId);
+
+  if (error) {
+    console.error("Failed to update subscription on invoice.payment_succeeded:", error);
+    throw error;
+  }
+}
+
+// === invoice.payment_failed ===
+// Fails closed by design: access is revoked (status = past_due, not
+// counted as premium by is_user_premium()) rather than silently kept
+// active during a billing problem. Adjust if you want a grace period.
+async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
+  const customerId = typeof invoice.customer === "string" ? invoice.customer : null;
+  if (!customerId) return;
+
+  const { error } = await supabaseAdmin
+    .from("subscriptions")
+    .update({
+      status: "past_due",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("stripe_customer_id", customerId);
+
+  if (error) {
+    console.error("Failed to update subscription on invoice.payment_failed:", error);
+    throw error;
+  }
 }
