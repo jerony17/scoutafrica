@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import Stripe from "stripe";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { stripe } from "../../../lib/stripe";
 import {
   BASE_CURRENCY,
   PLAN_LABELS,
@@ -10,8 +10,6 @@ import {
   type BillingCycle,
   type SupportedCurrency,
 } from "../../../lib/pricing";
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 const VALID_CYCLES: BillingCycle[] = ["monthly", "annual"];
 const VALID_CURRENCIES: SupportedCurrency[] = ["JPY", "NGN", "USD", "GBP", "EUR"];
