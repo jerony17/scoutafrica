@@ -6,6 +6,9 @@ import Link from "next/link";
 import { supabase } from "../lib/supabase";
 import { isArrayOf, isPlayer } from "../lib/types";
 import type { Player } from "../lib/types";
+import UpgradeBanner from "../components/UpgradeBanner";
+import AIAnalysisPlaceholder from "../components/AIAnalysisPlaceholder";
+import PlayerRecommendationsPlaceholder from "../components/PlayerRecommendationsPlaceholder";
 
 export default function ScoutDashboard() { 
     const router = useRouter();
@@ -131,6 +134,8 @@ useEffect(() => {
   </p>
 
 </div>
+
+        <UpgradeBanner />
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
 
@@ -285,6 +290,15 @@ useEffect(() => {
 
   </div>
 </div>
+
+        <div className="mt-10">
+          <h2 className="text-2xl font-bold text-gray-900 mb-1">Premium Tools</h2>
+          <p className="text-gray-500 text-sm mb-4">Coming soon for ScoutAfrica Premium members</p>
+          <div className="grid sm:grid-cols-2 gap-5">
+            <AIAnalysisPlaceholder />
+            <PlayerRecommendationsPlaceholder />
+          </div>
+        </div>
 
       </div>
     </main>

@@ -8,6 +8,7 @@ import { isArrayOf, isPlayer } from "../lib/types";
 import type { Player } from "../lib/types";
 import { CountryFlag } from "../lib/CountryFlag";
 import PremiumBadge from "../components/PremiumBadge";
+import { isPremium } from "../lib/isPremium";
 
 // Same 10-field completeness measure used on the Player Dashboard, kept
 // consistent across the app rather than inventing a second definition.
@@ -100,6 +101,20 @@ export default function FindPlayers() {
   const [nationFilter, setNationFilter] = useState("Nation");
   const [ageFilter, setAgeFilter] = useState("Age");
   const [verifiedOnly, setVerifiedOnly] = useState(false);
+  const [viewerIsPremium, setViewerIsPremium] = useState(false);
+
+  useEffect(() => {
+    async function checkPremium() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      const premium = await isPremium(user?.id);
+      setViewerIsPremium(premium);
+    }
+
+    checkPremium();
+  }, []);
 
   useEffect(() => {
     async function loadPlayers() {
@@ -222,10 +237,14 @@ export default function FindPlayers() {
 
             <select
               value={nationFilter}
-              onChange={(e) => setNationFilter(e.target.value)}
-              className="rounded-xl bg-white/10 border border-white/20 text-white px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              onChange={(e) => viewerIsPremium && setNationFilter(e.target.value)}
+              disabled={!viewerIsPremium}
+              title={viewerIsPremium ? undefined : "Advanced filter - ScoutAfrica Premium required"}
+              className={`rounded-xl bg-white/10 border border-white/20 text-white px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 ${
+                viewerIsPremium ? "" : "opacity-50 cursor-not-allowed"
+              }`}
             >
-              <option className="text-black">Nation</option>
+              <option className="text-black">{viewerIsPremium ? "Nation" : "🔒 Nation (Premium)"}</option>
               <option className="text-black">Nigeria</option>
               <option className="text-black">Japan</option>
               <option className="text-black">Ghana</option>
@@ -235,15 +254,28 @@ export default function FindPlayers() {
 
             <select
               value={ageFilter}
-              onChange={(e) => setAgeFilter(e.target.value)}
-              className="rounded-xl bg-white/10 border border-white/20 text-white px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              onChange={(e) => viewerIsPremium && setAgeFilter(e.target.value)}
+              disabled={!viewerIsPremium}
+              title={viewerIsPremium ? undefined : "Advanced filter - ScoutAfrica Premium required"}
+              className={`rounded-xl bg-white/10 border border-white/20 text-white px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 ${
+                viewerIsPremium ? "" : "opacity-50 cursor-not-allowed"
+              }`}
             >
-              <option className="text-black">Age</option>
+              <option className="text-black">{viewerIsPremium ? "Age" : "🔒 Age (Premium)"}</option>
               <option className="text-black">Under 18</option>
               <option className="text-black">18–21</option>
               <option className="text-black">22–25</option>
               <option className="text-black">26+</option>
             </select>
+
+            {!viewerIsPremium && (
+              <a
+                href="/membership"
+                className="rounded-xl bg-amber-500/20 border border-amber-400/40 text-amber-200 px-4 py-2 text-sm font-medium hover:bg-amber-500/30 transition-colors flex items-center gap-1.5"
+              >
+                ⭐ Unlock Advanced Filters
+              </a>
+            )}
 
             <button
               type="button"

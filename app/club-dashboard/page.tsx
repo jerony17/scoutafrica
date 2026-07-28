@@ -8,6 +8,7 @@ import { isClubProfile } from "../lib/types";
 import type { ClubProfile } from "../lib/types";
 import { CountryFlag } from "../lib/CountryFlag";
 import PremiumBadge from "../components/PremiumBadge";
+import UpgradeBanner from "../components/UpgradeBanner";
 
 interface ClubInfo {
   displayName: string;
@@ -224,6 +225,8 @@ export default function ClubDashboard() {
             </div>
           </div>
         </div>
+
+        <UpgradeBanner />
 
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 mb-10">
