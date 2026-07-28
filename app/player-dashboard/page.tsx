@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import UpgradeBanner from "../components/UpgradeBanner";
 import { supabase } from "../lib/supabase";
 import { isArrayOf, isCareerHistoryEntry, isPlayer } from "../lib/types";
 import type { Player } from "../lib/types";
@@ -164,6 +165,8 @@ const [missingFields, setMissingFields] = useState<string[]>([]);
         <h1 className="text-4xl font-bold text-green-700 mb-8">
           Player Dashboard
         </h1>
+
+        <UpgradeBanner />
 
         <div className="bg-white rounded-2xl shadow-md p-6 mb-8">
 

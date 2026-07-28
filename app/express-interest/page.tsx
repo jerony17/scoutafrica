@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import ExpressInterestClient from "./ExpressInterestClient";
+import PremiumGuard from "../components/PremiumGuard";
 
 // Server Component (no "use client"). Per Next.js's current official guidance
 // for useSearchParams()-during-prerendering, searchParams is received here as
@@ -15,14 +16,16 @@ export default function ExpressInterestPage({
   searchParams: Promise<{ player?: string; type?: string }>;
 }) {
   return (
-    <Suspense
-      fallback={
-        <main className="min-h-screen flex items-center justify-center">
-          Loading...
-        </main>
-      }
-    >
-      <ExpressInterestClient searchParams={searchParams} />
-    </Suspense>
+    <PremiumGuard>
+      <Suspense
+        fallback={
+          <main className="min-h-screen flex items-center justify-center">
+            Loading...
+          </main>
+        }
+      >
+        <ExpressInterestClient searchParams={searchParams} />
+      </Suspense>
+    </PremiumGuard>
   );
 }
