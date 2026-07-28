@@ -221,7 +221,7 @@ const [missingFields, setMissingFields] = useState<string[]>([]);
             📨 Messages
           </Link>
           <Link
-            href="/subscription"
+            href="/membership"
             className="inline-block bg-white border border-gray-200 hover:border-amber-400 hover:text-amber-600 text-gray-700 px-5 py-2.5 rounded-xl font-semibold"
           >
             ⭐ Subscription

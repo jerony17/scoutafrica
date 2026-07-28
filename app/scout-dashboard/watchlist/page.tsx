@@ -5,6 +5,7 @@ import Link from "next/link";
 import { supabase } from "../../lib/supabase";
 import { isArrayOf, isPlayer } from "../../lib/types";
 import type { Player } from "../../lib/types";
+import PremiumBadge from "../../components/PremiumBadge";
 
 export default function WatchlistPage() {
   const [players, setPlayers] = useState<Player[]>([]);
@@ -106,8 +107,9 @@ export default function WatchlistPage() {
                 key={player.id}
                 className="bg-white rounded-2xl shadow-lg p-6"
               >
-                <h2 className="text-2xl font-bold">
+                <h2 className="text-2xl font-bold flex items-center gap-2 flex-wrap">
                   {player.full_name}
+                  <PremiumBadge userId={player.user_id} />
                 </h2>
 
                 <p className="mt-2">⚽ {player.position}</p>

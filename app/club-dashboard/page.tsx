@@ -280,7 +280,7 @@ export default function ClubDashboard() {
             <p className="text-gray-300 text-sm mt-1">Your active conversations</p>
           </a>
           <a
-            href="/subscription"
+            href="/membership"
             className="group bg-black text-white rounded-2xl p-6 shadow-sm hover:shadow-xl transition-all duration-200 hover:-translate-y-1"
           >
             <p className="font-bold text-lg flex items-center gap-1">

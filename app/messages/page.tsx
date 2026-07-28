@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { supabase } from "../lib/supabase";
+import PremiumBadge from "../components/PremiumBadge";
 import { isArrayOf, isMessage, isMessageAttachment } from "../lib/types";
 import type { ConversationWithPlayer, Message, MessageAttachment, Player } from "../lib/types";
 
@@ -504,6 +505,7 @@ export default function Messages() {
                   const label = counterpartLabel(conversation);
                   const iAmScout = currentUserId === conversation.scout_id;
                   const avatarUrl = iAmScout ? conversation.player?.photo_url : null;
+                  const counterpartUserId = iAmScout ? conversation.player?.user_id : conversation.scout_id;
 
                   return (
                     <button
@@ -531,11 +533,12 @@ export default function Messages() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
                           <p
-                            className={`truncate text-sm ${
+                            className={`truncate text-sm flex items-center gap-1.5 min-w-0 ${
                               unread > 0 ? "font-bold text-gray-900" : "font-medium text-gray-800"
                             }`}
                           >
-                            {label}
+                            <span className="truncate">{label}</span>
+                            {counterpartUserId && <PremiumBadge userId={counterpartUserId} />}
                           </p>
                           <span className="text-[11px] text-gray-400 shrink-0">
                             {formatPreviewTime(last?.created_at || conversation.last_message_at)}
@@ -583,6 +586,9 @@ export default function Messages() {
                   const iAmScout = currentUserId === selectedConversation.scout_id;
                   const avatarUrl = iAmScout ? selectedConversation.player?.photo_url : null;
                   const label = counterpartLabel(selectedConversation);
+                  const counterpartUserId = iAmScout
+                    ? selectedConversation.player?.user_id
+                    : selectedConversation.scout_id;
                   return (
                     <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-100">
                       <div className="relative w-10 h-10 rounded-full overflow-hidden bg-gray-800 shrink-0 flex items-center justify-center">
@@ -595,7 +601,10 @@ export default function Messages() {
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h2 className="font-bold text-gray-900 truncate">{label}</h2>
+                        <h2 className="font-bold text-gray-900 truncate flex items-center gap-2">
+                          {label}
+                          {counterpartUserId && <PremiumBadge userId={counterpartUserId} />}
+                        </h2>
                         <p className="text-xs text-gray-400 italic">Typing indicator coming soon</p>
                       </div>
                     </div>

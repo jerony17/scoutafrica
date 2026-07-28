@@ -11,7 +11,7 @@ export default function PaymentSuccessPage() {
           Subscription page to confirm.
         </p>
         <a
-          href="/subscription"
+          href="/membership"
           className="inline-block bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-semibold px-6 py-3 rounded-xl shadow-md hover:shadow-lg transition-all duration-200"
         >
           View My Subscription
