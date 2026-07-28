@@ -7,6 +7,7 @@ import { supabase } from "../lib/supabase";
 import { isArrayOf, isPlayer } from "../lib/types";
 import type { Player } from "../lib/types";
 import { CountryFlag } from "../lib/CountryFlag";
+import PremiumBadge from "../components/PremiumBadge";
 
 // Same 10-field completeness measure used on the Player Dashboard, kept
 // consistent across the app rather than inventing a second definition.
@@ -348,8 +349,9 @@ export default function FindPlayers() {
                   <div className="p-5 flex flex-col flex-1">
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <h3 className="text-lg font-bold text-gray-900 leading-tight">
+                        <h3 className="text-lg font-bold text-gray-900 leading-tight flex items-center gap-2 flex-wrap">
                           {player.full_name || "Unnamed Player"}
+                          <PremiumBadge userId={player.user_id} />
                         </h3>
                         <p className="text-sm text-gray-500">
                           {player.position || "Position unknown"}
