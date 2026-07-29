@@ -63,9 +63,11 @@ export async function POST(request: NextRequest) {
 
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
-      payment_method_types: ["card"],
       customer_email: user.email,
-      client_reference_id: user.id,
+      client_reference_id: user.id, 
+      managed_payments: {
+  enabled: false,
+},
       line_items: [
         {
           price_data: {
@@ -105,7 +107,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ url: session.url });
   } catch (error) {
-    console.error("Stripe checkout session error:", error);
+    console.error("Stripe checkout session error:");
+console.dir(error, { depth: null });
     const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 500 });
   }

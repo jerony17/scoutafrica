@@ -74,7 +74,7 @@ export const PLAN_LABELS: Record<BillingCycle, string> = {
 // renewal and no cancellation ever recorded - computed at display time
 // instead of relying on a background job to have already flipped the
 // stored status.
-export type SubscriptionStatus = "free" | "premium" | "pending" | "cancelled" | "expired" | "renewing";
+export type SubscriptionStatus = "free" | "premium" | "pending" | "cancelled" | "expired" | "renewing" | "past_due";
 
 export function getEffectiveSubscriptionStatus(
   status: SubscriptionStatus | null | undefined,

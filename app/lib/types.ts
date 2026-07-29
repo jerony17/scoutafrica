@@ -398,7 +398,7 @@ export interface Subscription {
   stripe_subscription_id: string | null;
   paystack_customer_code: string | null;
   paystack_subscription_code: string | null;
-  status: "free" | "premium" | "pending" | "cancelled" | "expired" | "renewing";
+  status: "free" | "premium" | "pending" | "cancelled" | "expired" | "renewing" | "past_due";
   started_at: string | null;
   expires_at: string | null;
   cancelled_at: string | null;

@@ -61,6 +61,30 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// Derives plan/billing_cycle from the Stripe Subscription's own Price
+// object (price.recurring.interval) rather than from Checkout Session
+// metadata - metadata is our own bookkeeping and could theoretically be
+// missing or wrong; the Price's recurring interval is Stripe's own
+// authoritative structure and is present on every subscription-related
+// event, including renewals where no metadata is available at all. One
+// implementation used by every write site below, instead of three
+// separate, potentially-inconsistent derivations.
+function derivePlanFields(subscription: Stripe.Subscription): {
+  plan: "premium_monthly" | "premium_annual" | null;
+  billing_cycle: "monthly" | "annual" | null;
+} {
+  const interval = subscription.items.data[0]?.price?.recurring?.interval;
+
+  if (interval === "month") {
+    return { plan: "premium_monthly", billing_cycle: "monthly" };
+  }
+  if (interval === "year") {
+    return { plan: "premium_annual", billing_cycle: "annual" };
+  }
+
+  return { plan: null, billing_cycle: null };
+}
+
 // === checkout.session.completed ===
 // Fires once, right after the customer completes payment. This is where
 // we learn WHICH ScoutAfrica user just subscribed - via
@@ -87,14 +111,23 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     return;
   }
 
-  // Retrieve the full subscription to get the price ID and the real
-  // current_period_end - neither is present on the checkout session
-  // object itself.
+  // Retrieve the full subscription to get the price ID, plan/billing
+  // cycle, and the real current_period_end - none of these are present
+  // on the checkout session object itself.
   const subscription = await stripe.subscriptions.retrieve(subscriptionId);
   const priceId = subscription.items.data[0]?.price.id || null;
   const currentPeriodEnd = new Date(subscription.items.data[0].current_period_end * 1000);
+  const { plan, billing_cycle } = derivePlanFields(subscription);
 
-  const { error } = await supabaseAdmin
+  // currency/amount are only available from our own Checkout Session
+  // metadata (set in create-checkout-session/route.ts) - Stripe's
+  // Subscription/Price object doesn't carry the same "amount the
+  // customer was quoted in their chosen currency" concept in one field
+  // the way our metadata does, so this one part still reads metadata.
+  const currency = session.metadata?.currency || null;
+  const amount = session.metadata?.amount ? Number(session.metadata.amount) : null;
+
+  const { data: subscriptionRow, error } = await supabaseAdmin
     .from("subscriptions")
     .upsert(
       {
@@ -102,6 +135,12 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
         status: "premium", // matches the existing, already-tested is_user_premium() check -
                             // NOT "active", to avoid silently breaking the Premium badge and
                             // existing access checks that already look for this exact value
+        plan,
+        billing_cycle,
+        currency,
+        amount,
+        payment_provider: "stripe",
+        payment_method: "card",
         stripe_customer_id: customerId,
         stripe_subscription_id: subscriptionId,
         price_id: priceId,
@@ -111,24 +150,41 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
         updated_at: new Date().toISOString(),
       },
       { onConflict: "user_id" }
-    );
+    )
+    .select("id")
+    .single();
 
   if (error) {
     console.error("Failed to upsert subscription on checkout completion:", error);
     throw error; // triggers the 500 -> Stripe retry path in the outer catch
   }
+
+  await supabaseAdmin.from("payment_history").insert({
+    subscription_id: subscriptionRow.id,
+    payment_provider: "stripe",
+    payment_method: "card",
+    amount: amount ?? 0,
+    currency: currency ?? "JPY",
+    transaction_reference: session.id,
+    payment_status: "success",
+    payment_date: new Date().toISOString(),
+  });
 }
 
 // === customer.subscription.updated ===
 // Fires on renewals, plan changes, and Stripe's own retry-scheduling
 // changes. Looks the row up by stripe_customer_id, since this event
-// doesn't carry a Supabase user_id directly.
+// doesn't carry a Supabase user_id directly. Also re-derives plan/
+// billing_cycle (not just price_id) so a genuine plan CHANGE (monthly ->
+// annual, for example) is reflected correctly, not just the very first
+// checkout.
 async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
   const customerId = typeof subscription.customer === "string" ? subscription.customer : null;
   if (!customerId) return;
 
   const priceId = subscription.items.data[0]?.price.id || null;
   const currentPeriodEnd = new Date(subscription.items.data[0].current_period_end * 1000);
+  const { plan, billing_cycle } = derivePlanFields(subscription);
 
   const status = subscription.cancel_at_period_end
     ? "renewing" // still premium, but will not renew again
@@ -142,6 +198,8 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
     .from("subscriptions")
     .update({
       status,
+      plan,
+      billing_cycle,
       price_id: priceId,
       expires_at: currentPeriodEnd.toISOString(),
       updated_at: new Date().toISOString(),
@@ -156,7 +214,9 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
 
 // === customer.subscription.deleted ===
 // Fires when a subscription is actually cancelled (immediately, or at
-// the end of the period the customer already paid for).
+// the end of the period the customer already paid for). Plan/billing
+// cycle are deliberately left as-is here - a cancelled subscription
+// still had a real plan, no need to null it out on cancellation.
 async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
   const customerId = typeof subscription.customer === "string" ? subscription.customer : null;
   if (!customerId) return;
@@ -179,8 +239,11 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
 // === invoice.payment_succeeded ===
 // Fires on the initial invoice AND every successful renewal. Keeps
 // status as premium (in case it had drifted to past_due after a
-// previous failed attempt that has now succeeded) and refreshes the
-// expiry date.
+// previous failed attempt that has now succeeded), refreshes the expiry
+// date, and re-derives plan/billing_cycle for the same robustness reason
+// as customer.subscription.updated above - this event can also arrive
+// for a renewal without customer.subscription.updated necessarily having
+// run first.
 async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
   const customerId = typeof invoice.customer === "string" ? invoice.customer : null;
   if (!customerId) return;
@@ -191,15 +254,29 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
       : null;
 
   let currentPeriodEnd: string | undefined;
+  let planFields: { plan: "premium_monthly" | "premium_annual" | null; billing_cycle: "monthly" | "annual" | null } = {
+    plan: null,
+    billing_cycle: null,
+  };
+
   if (subscriptionId) {
     const subscription = await stripe.subscriptions.retrieve(subscriptionId);
     currentPeriodEnd = new Date(subscription.items.data[0].current_period_end * 1000).toISOString();
+    planFields = derivePlanFields(subscription);
   }
+
+  const { data: existing } = await supabaseAdmin
+    .from("subscriptions")
+    .select("id, currency")
+    .eq("stripe_customer_id", customerId)
+    .maybeSingle();
 
   const { error } = await supabaseAdmin
     .from("subscriptions")
     .update({
       status: "premium",
+      ...(planFields.plan ? { plan: planFields.plan } : {}),
+      ...(planFields.billing_cycle ? { billing_cycle: planFields.billing_cycle } : {}),
       ...(currentPeriodEnd ? { expires_at: currentPeriodEnd } : {}),
       updated_at: new Date().toISOString(),
     })
@@ -208,6 +285,19 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
   if (error) {
     console.error("Failed to update subscription on invoice.payment_succeeded:", error);
     throw error;
+  }
+
+  if (existing) {
+    await supabaseAdmin.from("payment_history").insert({
+      subscription_id: existing.id,
+      payment_provider: "stripe",
+      payment_method: "card",
+      amount: (invoice.amount_paid || 0) / (existing.currency === "JPY" ? 1 : 100),
+      currency: existing.currency || "JPY",
+      transaction_reference: invoice.id,
+      payment_status: "success",
+      payment_date: new Date().toISOString(),
+    });
   }
 }
 
