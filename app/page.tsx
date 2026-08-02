@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { supabase } from "./lib/supabase";
 import Logo from "./components/Logo";
-
+import Image from "next/image";
 export default async function Home() {
   const { count: playerCount } = await supabase
     .from("player")
@@ -20,7 +20,7 @@ export default async function Home() {
   return (
     <main className="min-h-screen bg-gradient-to-b from-green-50 to-white">
 
-      <nav className="flex items-center justify-between px-8 py-3 bg-white shadow-sm">
+      <nav className="sticky top-0 z-50 flex items-center justify-between px-8 py-3 bg-white border-b border-gray-200 shadow-sm">
 
   <Link href="/" className="flex items-center gap-3 hover:opacity-90 transition-opacity">
      <Logo
@@ -54,15 +54,28 @@ export default async function Home() {
 </nav>
 
       {/* Hero Section */}
-<section className="min-h-[calc(100vh-72px)] flex flex-col items-center justify-center text-center px-6 -mt-2">
+  <section className="relative overflow-hidden min-h-[85vh] flex flex-col items-center justify-center text-center px-6">
+  
+  <div className="absolute inset-0 bg-gradient-to-b from-green-50 via-white to-green-50"></div>
+<div className="absolute inset-0 opacity-20 pointer-events-none">
+  <Image
+    src="/branding/football-watermark.png"
+    alt=""
+    fill
+    className="object-cover"
+  />
+</div>
+
+
+<div className="relative z-10 flex flex-col items-center text-center">
 
   <Logo
-  variant="hero"
-  size="medium"
-   width={320}
-height={180}
-  className="mb-1"
-/>
+    variant="hero"
+    size="medium"
+    width={320}
+    height={180}
+    className="mb-1"
+  />
 
   <h2 className="mt-1 text-2xl sm:text-3xl font-bold text-green-700 max-w-3xl leading-tight">
     Where African Football Dreams Meet Global Opportunity.
@@ -88,6 +101,8 @@ height={180}
     </Link>
 
   </div>
+
+</div>
 
 </section>
 

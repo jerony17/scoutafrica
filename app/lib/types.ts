@@ -438,6 +438,51 @@ export function isPaymentHistoryEntry(value: unknown): value is PaymentHistoryEn
   );
 }
 
+export type SupportTicketReason =
+  | "General Question"
+  | "Premium Subscription"
+  | "Payment Issue"
+  | "Report a Bug"
+  | "Player Verification"
+  | "Club Account"
+  | "Scout Account"
+  | "Partnership / Sponsorship"
+  | "Report a User"
+  | "Suggest a Feature"
+  | "Other";
+
+export type SupportTicketStatus = "Open" | "In Progress" | "Resolved" | "Closed";
+
+export interface SupportTicket {
+  id: number;
+  user_id: string | null;
+  full_name: string | null;
+  email: string | null;
+  reason: SupportTicketReason;
+  subject: string;
+  message: string;
+  attachment_url: string | null;
+  attachment_name: string | null;
+  status: SupportTicketStatus;
+  priority: "Low" | "Normal" | "High" | "Urgent";
+  assigned_to: string | null;
+  resolved_at: string | null;
+  admin_notes: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export function isSupportTicket(value: unknown): value is SupportTicket {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "id" in value &&
+    "reason" in value &&
+    "subject" in value &&
+    "message" in value
+  );
+}
+
 export function isArrayOf<T>(
   value: unknown,
   check: (v: unknown) => v is T
