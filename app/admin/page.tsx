@@ -22,30 +22,15 @@ import {
   FiCheckCircle,
   FiAlertTriangle,
   FiClock,
+  FiUser,
 } from "react-icons/fi";
 
-// === Stage 3: live dashboard data ===
-//
-// Several table/column names in the original brief don't match this
-// project's real schema - confirmed directly against the live database
-// before writing any query here, not assumed:
-// - "players" -> the real table is `player` (singular)
-// - "clubs" -> the real table is `club_profiles`
-// - "profiles/users table with account_type" -> no such table exists;
-//   account_type (scout/agent/club/academy) lives on
-//   `account_verifications`, so Registered Scouts/Agents counts come
-//   from there instead - every row of that type counts as "registered"
-//   regardless of verification status, matching how "Total Players" is
-//   separate from "Verified Players" below.
-// - "subscription_status = active" -> the real column is
-//   `subscriptions.status`, and its real allowed values are
-//   free/premium/pending/past_due/cancelled/renewing - there is no
-//   "active" value. Premium Members counts status IN
-//   ('premium','renewing').
-// - "Monthly Revenue" has no dedicated revenue/invoices table to read
-//   from - computed here as the sum of `amount` across subscriptions
-//   currently in ('premium','renewing'), a reasonable proxy for current
-//   recurring revenue. Displays ¥0 if none exist, not an error.
+// === Founder & CEO section + Executive Information removed from this
+// dashboard per explicit instruction - moved to a public FounderSection
+// component (app/components/FounderSection.tsx) for the About Us page.
+// This dashboard now only links to the edit controls at
+// /admin/founder-profile; it no longer displays or fetches any founder
+// content itself. Everything else below is unchanged from Stage 3/4.
 
 type SidebarItem = {
   label: string;
@@ -292,9 +277,6 @@ export default function AdminPanel() {
         setActivity(events);
         setLatestTickets(latestTicketsRes.data || []);
 
-        // Bucket player registrations into 30 daily counts for the
-        // growth chart - real counts, or an empty (all-zero) chart if
-        // there's no data yet, never fabricated values.
         const buckets = new Array(30).fill(0);
         const now = Date.now();
         (growthPlayersRes.data || []).forEach((row) => {
@@ -323,9 +305,6 @@ export default function AdminPanel() {
   }
 
   const unresolvedTickets = (kpis?.openTickets ?? 0) + (kpis?.inProgressTickets ?? 0);
-  // Threshold is a reasonable operational default, not specified in the
-  // brief - documented here rather than picked silently: more than 10
-  // unresolved tickets is flagged as "Needs Attention".
   const ticketsHealthy = unresolvedTickets <= 10;
 
   const kpiCards = kpis
@@ -399,7 +378,6 @@ export default function AdminPanel() {
       </aside>
 
       <div className="flex-1 min-w-0">
-        {/* Executive Hero */}
         <div className="p-4 sm:p-8 pb-0">
           <div className="bg-white rounded-3xl shadow-sm border border-gray-100 px-6 sm:px-10 py-8 sm:py-10">
             <button
@@ -426,7 +404,6 @@ export default function AdminPanel() {
             </div>
           )}
 
-          {/* KPI cards */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
             {loading
               ? Array.from({ length: 8 }).map((_, i) => (
@@ -452,7 +429,6 @@ export default function AdminPanel() {
 
           <div className="grid lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-6">
-              {/* Quick Actions */}
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                 <h2 className="font-bold text-gray-900 mb-4">Quick Actions</h2>
                 <div className="grid sm:grid-cols-2 gap-3">
@@ -469,7 +445,6 @@ export default function AdminPanel() {
                 </div>
               </div>
 
-              {/* Charts */}
               <div className="grid sm:grid-cols-2 gap-6">
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                   <h2 className="font-bold text-gray-900 mb-1">User Growth</h2>
@@ -522,7 +497,6 @@ export default function AdminPanel() {
                 </div>
               </div>
 
-              {/* Latest Support Tickets */}
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="font-bold text-gray-900">Latest Support Tickets</h2>
@@ -580,7 +554,6 @@ export default function AdminPanel() {
                 )}
               </div>
 
-              {/* Recent Activity */}
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                 <h2 className="font-bold text-gray-900 mb-4">Recent Activity</h2>
                 {loading ? (
@@ -616,7 +589,6 @@ export default function AdminPanel() {
             </div>
 
             <div className="space-y-6">
-              {/* Platform Health */}
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                 <h2 className="font-bold text-gray-900 mb-4">Platform Health</h2>
                 <div className="space-y-3">
@@ -655,25 +627,21 @@ export default function AdminPanel() {
                 </div>
               </div>
 
-              {/* Founder Profile Card */}
-              <div className="relative overflow-hidden bg-gradient-to-b from-gray-900 via-gray-900 to-green-950 text-white rounded-2xl shadow-lg p-6 sm:p-8 text-center">
-                <div className="pointer-events-none absolute -top-10 -right-10 w-40 h-40 bg-green-500/10 rounded-full blur-3xl" />
-                <div className="relative flex flex-col items-center">
-                  <div className="bg-white/5 border border-white/10 rounded-2xl p-3 mb-5">
-                    <Logo variant="badge" size="small" />
-                  </div>
-                  <h2 className="text-xl font-bold tracking-tight">Jerome Abah</h2>
-                  <p className="text-white/70 text-sm mt-1">Founder &amp; CEO</p>
-                  <p className="text-white/50 text-sm">ScoutAfrica</p>
-                  <span className="inline-flex items-center gap-1.5 bg-green-600/15 border border-green-500/30 text-green-400 text-xs font-semibold px-3 py-1 rounded-full mt-4">
-                    <FiCheckCircle className="w-3.5 h-3.5" />
-                    Verified Founder
-                  </span>
-                  <div className="w-full mt-6 pt-5 border-t border-white/10">
-                    <p className="text-white/40 text-xs tracking-wide uppercase">Version 1 MVP</p>
-                  </div>
+              {/* Founder Profile: dashboard only links to the edit page now
+                  - it neither displays nor fetches any founder content itself. */}
+              <Link
+                href="/admin/founder-profile"
+                className="flex items-center gap-4 bg-white rounded-2xl shadow-sm hover:shadow-md border border-gray-100 p-6 transition-all duration-200 hover:border-green-200"
+              >
+                <div className="w-11 h-11 rounded-xl bg-green-50 flex items-center justify-center shrink-0">
+                  <FiUser className="w-5 h-5 text-green-600" />
                 </div>
-              </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-gray-900">Founder Profile</p>
+                  <p className="text-sm text-gray-500">Edit the public About Us Founder &amp; CEO section</p>
+                </div>
+                <span className="text-gray-300">→</span>
+              </Link>
             </div>
           </div>
         </div>

@@ -489,3 +489,55 @@ export function isArrayOf<T>(
 ): value is T[] {
   return Array.isArray(value) && value.every(check);
 }
+
+// Add this to app/lib/types.ts
+
+export interface FounderProfile {
+  id: number;
+  full_name: string;
+  position: string;
+  company: string;
+  country: string | null;
+  country_flag: string | null;
+  current_base: string | null;
+  current_base_flag: string | null;
+  photo_url: string | null;
+  message: string | null;
+  mission_points: string[] | null;
+  vision: string | null;
+  core_values: string[] | null;
+  industry_tags: string[] | null;
+  platform_founded: string | null;
+  active_since: string | null;
+  current_version: string | null;
+  countries_served: string | null;
+  players_connected: string | null;
+  updated_at: string | null;
+  updated_by: string | null;
+}
+export interface CareerHistory {
+  id: number;
+  player_id: number;
+
+  club_name: string;
+  country: string | null;
+  league: string | null;
+  position: string | null;
+  year: string | null;
+
+  appearances: number | null;
+  goals: number | null;
+  assists: number | null; 
+  display_order: number | null;
+  created_at: string;
+}
+
+export function isFounderProfile(value: unknown): value is FounderProfile {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "id" in value &&
+    "full_name" in value &&
+    "position" in value
+  );
+}

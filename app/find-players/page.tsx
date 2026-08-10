@@ -1,438 +1,380 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { supabase } from "../lib/supabase";
-import { isArrayOf, isPlayer } from "../lib/types";
-import type { Player } from "../lib/types";
+import { FiSearch, FiCheckCircle, FiUser, FiX } from "react-icons/fi"; 
 import { CountryFlag } from "../lib/CountryFlag";
-import PremiumBadge from "../components/PremiumBadge";
-import { isPremium } from "../lib/isPremium";
 
-// Same 10-field completeness measure used on the Player Dashboard, kept
-// consistent across the app rather than inventing a second definition.
-const COMPLETENESS_FIELDS: (keyof Player)[] = [
-  "full_name",
-  "photo_url",
-  "position",
-  "current_club",
-  "nationality",
-  "age",
-  "height",
-  "weight",
-  "bio",
-  "preferred_foot",
+// === Confirmed against the live database before writing this page ===
+// player table has no player_type column (Professional/Semi-Pro/Academy)
+// and no view-count column - both are genuinely absent, not just
+// unused, so "Player Type" filtering and "Most Viewed" sorting are
+// omitted below rather than faked against data that doesn't exist. The
+// brief's own "(if available)" on Most Viewed already anticipated this.
+//
+// Premium status lives on the separate `subscriptions` table, but its
+// RLS only allows a row's owner or an admin to read it - a public,
+// unauthenticated visitor browsing this page cannot determine any other
+// player's premium status through a direct query. Implementing "Premium
+// only" or a premium badge here would require either a new public-safe
+// database view or a new server-side API route - both out of scope per
+// explicit instruction not to touch the schema. Also omitted, not faked.
+//
+// "Verified only" IS fully implemented - player.verified is a real,
+// publicly-readable column.
+
+const PAGE_SIZE = 12;
+
+const POSITIONS = [
+  "Goalkeeper",
+  "Centre-Back",
+  "Full-Back",
+  "Defensive Midfielder",
+  "Central Midfielder",
+  "Attacking Midfielder",
+  "Winger",
+  "Striker",
 ];
 
-function profileCompletion(player: Player): number {
-  const filled = COMPLETENESS_FIELDS.filter((key) => Boolean(player[key])).length;
-  return Math.round((filled / COMPLETENESS_FIELDS.length) * 100);
-}
+type SortOption = "newest" | "oldest" | "alphabetical" | "age";
 
-function CompletionRing({ percent }: { percent: number }) {
-  const radius = 16;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (percent / 100) * circumference;
-  const color = percent >= 80 ? "#16a34a" : percent >= 50 ? "#d97706" : "#dc2626";
+type PlayerRow = {
+  id: number;
+  full_name: string | null;
+  age: number | null;
+  position: string | null;
+  nationality: string | null;
+  current_club: string | null;
+  scoutafrica_id: string | null;
+  photo_url: string | null;
+  cover_photo_url: string | null;
+  verified: boolean | null;
+  slug: string | null;
+};
 
-  return (
-    <div className="relative w-10 h-10 shrink-0" title={`${percent}% profile complete`}>
-      <svg viewBox="0 0 40 40" className="w-10 h-10 -rotate-90">
-        <circle cx="20" cy="20" r={radius} fill="none" stroke="#e5e7eb" strokeWidth="4" />
-        <circle
-          cx="20"
-          cy="20"
-          r={radius}
-          fill="none"
-          stroke={color}
-          strokeWidth="4"
-          strokeLinecap="round"
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-        />
-      </svg>
-      <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-gray-700">
-        {percent}
-      </span>
-    </div>
-  );
-}
-
-function EmptyIllustration() {
-  return (
-    <svg viewBox="0 0 200 140" className="w-48 h-auto mx-auto" aria-hidden="true">
-      <rect x="10" y="20" width="180" height="100" rx="12" fill="#f0fdf4" />
-      <circle cx="80" cy="65" r="28" fill="none" stroke="#16a34a" strokeWidth="4" />
-      <line x1="100" y1="85" x2="122" y2="107" stroke="#16a34a" strokeWidth="6" strokeLinecap="round" />
-      <path
-        d="M65 65 h30 M80 50 v30"
-        stroke="#16a34a"
-        strokeWidth="3"
-        strokeLinecap="round"
-        opacity="0.4"
-      />
-    </svg>
-  );
-}
-
-function SkeletonCard() {
-  return (
-    <div className="bg-white rounded-2xl shadow-sm overflow-hidden animate-pulse">
-      <div className="w-full h-56 bg-gray-200" />
-      <div className="p-5 space-y-3">
-        <div className="h-5 bg-gray-200 rounded w-3/4" />
-        <div className="h-4 bg-gray-200 rounded w-1/2" />
-        <div className="h-4 bg-gray-200 rounded w-2/3" />
-        <div className="h-10 bg-gray-200 rounded-xl mt-4" />
-      </div>
-    </div>
-  );
-}
-
-const PLAYERS_PER_PAGE = 12;
-
-export default function FindPlayers() {
-  const [players, setPlayers] = useState<Player[]>([]);
+export default function FindPlayersPage() {
+  const [players, setPlayers] = useState<PlayerRow[]>([]);
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(1);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [positionFilter, setPositionFilter] = useState("Position");
-  const [nationFilter, setNationFilter] = useState("Nation");
-  const [ageFilter, setAgeFilter] = useState("Age");
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [position, setPosition] = useState("");
+  const [nationality, setNationality] = useState("");
+  const [currentClub, setCurrentClub] = useState("");
+  const [minAge, setMinAge] = useState("");
+  const [maxAge, setMaxAge] = useState("");
   const [verifiedOnly, setVerifiedOnly] = useState(false);
-  const [viewerIsPremium, setViewerIsPremium] = useState(false);
+  const [sort, setSort] = useState<SortOption>("newest");
 
+  // Debounce the free-text search so every keystroke doesn't trigger a query.
   useEffect(() => {
-    async function checkPremium() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+    const timeout = setTimeout(() => setDebouncedSearch(search.trim()), 350);
+    return () => clearTimeout(timeout);
+  }, [search]);
 
-      const premium = await isPremium(user?.id);
-      setViewerIsPremium(premium);
-    }
+  const buildQuery = useCallback(
+    (from: number, to: number) => {
+      let query = supabase.from("player").select("*").range(from, to);
 
-    checkPremium();
-  }, []);
+      if (debouncedSearch) {
+        query = query.or(
+          `full_name.ilike.%${debouncedSearch}%,scoutafrica_id.ilike.%${debouncedSearch}%`
+        );
+      }
+      if (position) query = query.eq("position", position);
+      if (nationality.trim()) query = query.ilike("nationality", `%${nationality.trim()}%`);
+      if (currentClub.trim()) query = query.ilike("current_club", `%${currentClub.trim()}%`);
+      if (minAge) query = query.gte("age", Number(minAge));
+      if (maxAge) query = query.lte("age", Number(maxAge));
+      if (verifiedOnly) query = query.eq("verified", true);
 
-  useEffect(() => {
-    async function loadPlayers() {
-      const { data, error } = await supabase
-        .from("player")
-        .select("*")
-        .order("full_name")
-        .range(0, page * PLAYERS_PER_PAGE - 1);
-
-      if (error) {
-        console.error(error);
-      } else {
-        setPlayers(isArrayOf(data, isPlayer) ? data : []);
+      switch (sort) {
+        case "newest":
+          query = query.order("created_at", { ascending: false });
+          break;
+        case "oldest":
+          query = query.order("created_at", { ascending: true });
+          break;
+        case "alphabetical":
+          query = query.order("full_name", { ascending: true });
+          break;
+        case "age":
+          query = query.order("age", { ascending: true });
+          break;
       }
 
+      return query;
+    },
+    [debouncedSearch, position, nationality, currentClub, minAge, maxAge, verifiedOnly, sort]
+  );
+
+  const loadFirstPage = useCallback(async () => {
+    setLoading(true);
+    setLoadError(false);
+    setPage(0);
+
+    const { data, error } = await buildQuery(0, PAGE_SIZE - 1);
+
+    if (error) {
+      console.error("Failed to load players:", error);
+      setLoadError(true);
       setLoading(false);
+      return;
     }
 
-    loadPlayers();
-  }, [page]);
+    setPlayers(data || []);
+    setHasMore((data || []).length === PAGE_SIZE);
+    setLoading(false);
+  }, [buildQuery]);
 
-  const filteredPlayers = useMemo(() => {
-    const search = searchTerm.trim().toLowerCase();
+  useEffect(() => {
+    loadFirstPage();
+  }, [loadFirstPage]);
 
-    return players.filter((player) => {
-      const matchesSearch =
-        !search ||
-        player.full_name?.toLowerCase().includes(search) ||
-        player.scoutafrica_id?.toLowerCase().includes(search) ||
-        player.current_club?.toLowerCase().includes(search);
+  async function loadMore() {
+    setLoadingMore(true);
+    const nextPage = page + 1;
+    const from = nextPage * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
 
-      const matchesPosition =
-        positionFilter === "Position" || player.position === positionFilter;
+    const { data, error } = await buildQuery(from, to);
 
-      const matchesNation =
-        nationFilter === "Nation" || player.nationality === nationFilter;
+    if (error) {
+      console.error("Failed to load more players:", error);
+      setLoadingMore(false);
+      return;
+    }
 
-      const matchesAge = (() => {
-        if (ageFilter === "Age") return true;
-        const age = player.age;
-        if (age == null) return false;
-        if (ageFilter === "Under 18") return age < 18;
-        if (ageFilter === "18–21") return age >= 18 && age <= 21;
-        if (ageFilter === "22–25") return age >= 22 && age <= 25;
-        if (ageFilter === "26+") return age >= 26;
-        return true;
-      })();
-
-      const matchesVerified = !verifiedOnly || player.verified === true;
-
-      return matchesSearch && matchesPosition && matchesNation && matchesAge && matchesVerified;
-    });
-  }, [players, searchTerm, positionFilter, nationFilter, ageFilter, verifiedOnly]);
-
-  const hasActiveFilters =
-    positionFilter !== "Position" ||
-    nationFilter !== "Nation" ||
-    ageFilter !== "Age" ||
-    verifiedOnly ||
-    Boolean(searchTerm);
+    setPlayers((prev) => [...prev, ...(data || [])]);
+    setHasMore((data || []).length === PAGE_SIZE);
+    setPage(nextPage);
+    setLoadingMore(false);
+  }
 
   function clearFilters() {
-    setPositionFilter("Position");
-    setNationFilter("Nation");
-    setAgeFilter("Age");
+    setSearch("");
+    setPosition("");
+    setNationality("");
+    setCurrentClub("");
+    setMinAge("");
+    setMaxAge("");
     setVerifiedOnly(false);
-    setSearchTerm("");
+    setSort("newest");
   }
 
   return (
     <main className="min-h-screen bg-gray-50">
-      {/* Hero search section */}
-      <div className="bg-gradient-to-b from-black to-gray-900 text-white">
-        <div className="max-w-6xl mx-auto px-6 py-14">
-          <p className="text-green-400 text-sm font-semibold tracking-[0.2em] uppercase mb-3">
-            ScoutAfrica Talent Network
-          </p>
-          <h1 className="text-4xl sm:text-5xl font-bold mb-3">Find Players</h1>
-          <p className="text-gray-300 max-w-xl mb-8">
-            Search verified player profiles from across the continent by name,
-            ScoutAfrica ID, or club.
-          </p>
+      <div className="max-w-7xl mx-auto px-4 sm:px-8 py-10">
+        <h1 className="text-3xl font-bold text-green-700">Find Players</h1>
+        <p className="text-gray-500 mt-1 mb-8">
+          Discover verified football talent from across Africa.
+        </p>
 
-          <div className="bg-white rounded-2xl p-2 flex items-center shadow-2xl">
-            <svg
-              className="w-5 h-5 text-gray-400 ml-3 shrink-0"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              aria-hidden="true"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 21l-4.35-4.35M17 10a7 7 0 11-14 0 7 7 0 0114 0z"
-              />
-            </svg>
+        {/* Search + Filters */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-8 space-y-4">
+          <div className="relative">
+            <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
             <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search by name, ScoutAfrica ID, or club..."
-              className="flex-1 px-3 py-3 text-gray-900 placeholder-gray-400 focus:outline-none"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by player name or ScoutAfrica ID..."
+              className="w-full rounded-xl border border-gray-200 pl-11 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
             />
           </div>
 
-          <div className="flex flex-wrap gap-3 mt-4">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <select
-              value={positionFilter}
-              onChange={(e) => setPositionFilter(e.target.value)}
-              className="rounded-xl bg-white/10 border border-white/20 text-white px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              value={position}
+              onChange={(e) => setPosition(e.target.value)}
+              className="rounded-xl border border-gray-200 px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-green-500"
             >
-              <option className="text-black">Position</option>
-              <option className="text-black">Goalkeeper</option>
-              <option className="text-black">Defender</option>
-              <option className="text-black">Midfielder</option>
-              <option className="text-black">Forward</option>
+              <option value="">Any Position</option>
+              {POSITIONS.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
             </select>
 
-            <select
-              value={nationFilter}
-              onChange={(e) => viewerIsPremium && setNationFilter(e.target.value)}
-              disabled={!viewerIsPremium}
-              title={viewerIsPremium ? undefined : "Advanced filter - ScoutAfrica Premium required"}
-              className={`rounded-xl bg-white/10 border border-white/20 text-white px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 ${
-                viewerIsPremium ? "" : "opacity-50 cursor-not-allowed"
-              }`}
-            >
-              <option className="text-black">{viewerIsPremium ? "Nation" : "🔒 Nation (Premium)"}</option>
-              <option className="text-black">Nigeria</option>
-              <option className="text-black">Japan</option>
-              <option className="text-black">Ghana</option>
-              <option className="text-black">South Africa</option>
-              <option className="text-black">Cameroon</option>
-            </select>
+            <input
+              value={nationality}
+              onChange={(e) => setNationality(e.target.value)}
+              placeholder="Nationality"
+              className="rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+            />
+
+            <input
+              value={currentClub}
+              onChange={(e) => setCurrentClub(e.target.value)}
+              placeholder="Current Club"
+              className="rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+            />
 
             <select
-              value={ageFilter}
-              onChange={(e) => viewerIsPremium && setAgeFilter(e.target.value)}
-              disabled={!viewerIsPremium}
-              title={viewerIsPremium ? undefined : "Advanced filter - ScoutAfrica Premium required"}
-              className={`rounded-xl bg-white/10 border border-white/20 text-white px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 ${
-                viewerIsPremium ? "" : "opacity-50 cursor-not-allowed"
-              }`}
+              value={sort}
+              onChange={(e) => setSort(e.target.value as SortOption)}
+              className="rounded-xl border border-gray-200 px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-green-500"
             >
-              <option className="text-black">{viewerIsPremium ? "Age" : "🔒 Age (Premium)"}</option>
-              <option className="text-black">Under 18</option>
-              <option className="text-black">18–21</option>
-              <option className="text-black">22–25</option>
-              <option className="text-black">26+</option>
+              <option value="newest">Newest</option>
+              <option value="oldest">Oldest</option>
+              <option value="alphabetical">Alphabetical</option>
+              <option value="age">Age</option>
             </select>
+          </div>
 
-            {!viewerIsPremium && (
-              <a
-                href="/membership"
-                className="rounded-xl bg-amber-500/20 border border-amber-400/40 text-amber-200 px-4 py-2 text-sm font-medium hover:bg-amber-500/30 transition-colors flex items-center gap-1.5"
-              >
-                ⭐ Unlock Advanced Filters
-              </a>
-            )}
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                value={minAge}
+                onChange={(e) => setMinAge(e.target.value)}
+                placeholder="Min age"
+                className="w-24 rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+              <span className="text-gray-400 text-sm">to</span>
+              <input
+                type="number"
+                value={maxAge}
+                onChange={(e) => setMaxAge(e.target.value)}
+                placeholder="Max age"
+                className="w-24 rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+            </div>
+
+            <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={verifiedOnly}
+                onChange={(e) => setVerifiedOnly(e.target.checked)}
+                className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+              />
+              Verified only
+            </label>
 
             <button
-              type="button"
-              onClick={() => setVerifiedOnly((v) => !v)}
-              aria-pressed={verifiedOnly}
-              className={`rounded-xl px-4 py-2 text-sm font-medium border transition ${
-                verifiedOnly
-                  ? "bg-green-600 border-green-600 text-white"
-                  : "bg-white/10 border-white/20 text-white hover:bg-white/20"
-              }`}
+              onClick={clearFilters}
+              className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 ml-auto"
             >
-              ✓ Verified only
+              <FiX className="w-3.5 h-3.5" />
+              Clear filters
             </button>
-
-            {hasActiveFilters && (
-              <button
-                type="button"
-                onClick={clearFilters}
-                className="text-sm text-gray-300 underline px-2 py-2"
-              >
-                Clear filters
-              </button>
-            )}
           </div>
         </div>
-      </div>
 
-      {/* Results */}
-      <div className="max-w-6xl mx-auto px-6 py-10">
-        {loading && (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <SkeletonCard key={i} />
+        {/* Results */}
+        {loadError ? (
+          <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center text-gray-500">
+            Something went wrong loading players. Please refresh to try again.
+          </div>
+        ) : loading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="w-full h-[190px] bg-gray-100 animate-pulse" />
+                <div className="flex justify-center -mt-[70px]">
+                  <div className="w-[140px] h-[140px] rounded-full border-[5px] border-white bg-gray-200 animate-pulse" />
+                </div>
+                <div className="px-5 pt-4 pb-5">
+                  <div className="h-4 w-2/3 mx-auto bg-gray-100 rounded animate-pulse mb-2" />
+                  <div className="h-3 w-1/2 mx-auto bg-gray-100 rounded animate-pulse" />
+                </div>
+              </div>
             ))}
           </div>
-        )}
-
-        {!loading && filteredPlayers.length === 0 && (
-          <div className="text-center py-16">
-            <EmptyIllustration />
-            <p className="text-xl font-semibold text-gray-800 mt-6">No players found.</p>
-            <p className="text-gray-500 mt-1">
-              Try a different search term or adjust your filters.
-            </p>
-            {hasActiveFilters && (
-              <button
-                type="button"
-                onClick={clearFilters}
-                className="mt-4 text-green-700 font-medium underline"
-              >
-                Clear filters
-              </button>
-            )}
+        ) : players.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-gray-100 p-16 text-center">
+            <FiUser className="w-10 h-10 text-gray-300 mx-auto mb-4" />
+            <p className="text-gray-500">No players found. Try adjusting your search or filters.</p>
           </div>
-        )}
-
-        {!loading && filteredPlayers.length > 0 && (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredPlayers.map((player) => {
-              const completion = profileCompletion(player);
-
-              return (
+        ) : (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              {players.map((player) => (
                 <div
                   key={player.id}
-                  className="bg-white rounded-2xl shadow-sm hover:shadow-xl transition duration-300 overflow-hidden flex flex-col"
+                  className="bg-white rounded-3xl shadow-sm hover:shadow-lg border border-gray-100 overflow-hidden transition-all duration-300 hover:-translate-y-1"
                 >
-                  <div className="relative w-full h-56 bg-gray-100">
-                    <Image
-                      src={
-                        player.photo_url ||
-                        "https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=400"
-                      }
-                      alt={player.full_name || "Player"}
-                      fill
-                      className="object-cover"
-                    />
+                  {/* Facebook-style cover photo */}
+                  <div className="relative w-full h-[190px] bg-gradient-to-br from-green-100 to-green-50">
+                    {player.cover_photo_url ? (
+                      <Image src={player.cover_photo_url} alt="" fill className="object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <FiUser className="w-10 h-10 text-green-200" />
+                      </div>
+                    )}
+
+                    {/* ScoutAfrica ID, upper-left on the cover */}
+                    <span className="absolute top-3 left-3 bg-black/40 backdrop-blur-sm text-white text-xs font-mono font-semibold px-2.5 py-1 rounded-full">
+                      {player.scoutafrica_id || "—"}
+                    </span>
+                  </div>
+
+                  {/* Profile picture, half-overlapping the cover */}
+                  <div className="relative flex justify-center -mt-[70px]">
+                    <div className="relative w-[140px] h-[140px] rounded-full border-[5px] border-white shadow-md overflow-hidden bg-gray-100">
+                      {player.photo_url ? (
+                        <Image src={player.photo_url} alt={player.full_name || "Player"} fill className="object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <FiUser className="w-10 h-10 text-gray-300" />
+                        </div>
+                      )}
+                    </div>
 
                     {player.verified && (
-                      <span className="absolute top-3 right-3 bg-green-600 text-white text-xs font-semibold px-2.5 py-1 rounded-full flex items-center gap-1 shadow">
-                        <svg
-                          className="w-3 h-3"
-                          fill="currentColor"
-                          viewBox="0 0 20 20"
-                          aria-hidden="true"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                        Verified
-                      </span>
-                    )}
-
-                    {player.scoutafrica_id && (
-                      <span className="absolute bottom-3 left-3 bg-black/70 text-white text-[11px] font-mono tracking-wider px-2.5 py-1 rounded-lg">
-                        {player.scoutafrica_id}
+                      <span
+                        className="absolute bottom-1 right-[calc(50%-70px+6px)] bg-green-600 text-white rounded-full p-1.5 shadow-md ring-2 ring-white"
+                        aria-label="Verified"
+                        title="Verified"
+                      >
+                        <FiCheckCircle className="w-4 h-4" />
                       </span>
                     )}
                   </div>
 
-                  <div className="p-5 flex flex-col flex-1">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <h3 className="text-lg font-bold text-gray-900 leading-tight flex items-center gap-2 flex-wrap">
-                          {player.full_name || "Unnamed Player"}
-                          <PremiumBadge userId={player.user_id} />
-                        </h3>
-                        <p className="text-sm text-gray-500">
-                          {player.position || "Position unknown"}
-                        </p>
-                      </div>
-                      <CompletionRing percent={completion} />
-                    </div>
+                  {/* Player info, centered */}
+                  <div className="px-5 pt-4 pb-5 text-center">
+                    <h3 className="font-bold text-gray-900 text-lg truncate">
+                      {player.full_name || "Unnamed Player"}
+                    </h3>
+                    <p className="text-sm text-gray-500 mt-0.5">{player.position || "—"}</p>
+                    <div className="flex items-center justify-center gap-2 text-sm text-gray-500 mt-0.5">
+  <CountryFlag country={player.nationality} />
+  <span>{player.nationality || "—"}</span>
+</div>
+                    <p className="text-sm text-gray-500 truncate">{player.current_club || "Free Agent"}</p>
+                    {player.age && <p className="text-sm text-gray-400 mt-1">{player.age} years old</p>}
 
-                    <div className="mt-4 space-y-1.5 text-sm text-gray-600 flex-1">
-                      <p className="flex items-center gap-2">
-                        <CountryFlag country={player.nationality} />
-                        {player.nationality || "Nationality unknown"}
-                      </p>
-                      <p>🏟️ {player.current_club || "Unattached"}</p>
-                      <p>🎂 {player.age ? `${player.age} yrs` : "Age unknown"}</p>
-                    </div>
-
-                    {player.slug ? (
-                      <Link
-                        href={`/player-profile/${player.slug}`}
-                        className="mt-5 block w-full bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-xl text-center font-semibold transition"
-                      >
-                        View Profile
-                      </Link>
-                    ) : (
-                      <button
-                        disabled
-                        title="This player's profile isn't available yet"
-                        className="mt-5 block w-full bg-gray-300 text-gray-500 py-2.5 rounded-xl text-center font-semibold cursor-not-allowed"
-                      >
-                        Profile Unavailable
-                      </button>
-                    )}
+                    <Link
+                      href={`/player-profile/${player.slug || player.id}`}
+                      className="mt-5 block w-full text-center bg-green-700 hover:bg-green-800 text-white text-sm font-semibold px-4 py-3 rounded-xl shadow-sm hover:shadow-md transition-all duration-200"
+                    >
+                      View Profile
+                    </Link>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        )}
+              ))}
+            </div>
 
-        {!loading && filteredPlayers.length > 0 && filteredPlayers.length >= players.length && (
-          <div className="text-center mt-10">
-            <button
-              onClick={() => setPage(page + 1)}
-              className="bg-black hover:bg-gray-800 text-white px-8 py-3 rounded-xl font-semibold transition"
-            >
-              Load More
-            </button>
-          </div>
+            {hasMore && (
+              <div className="text-center mt-10">
+                <button
+                  onClick={loadMore}
+                  disabled={loadingMore}
+                  className="bg-white border border-green-600 text-green-700 hover:bg-green-50 font-semibold px-8 py-3 rounded-xl transition-colors disabled:opacity-50"
+                >
+                  {loadingMore ? "Loading..." : "Load More"}
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
     </main>

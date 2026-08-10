@@ -1,0 +1,33 @@
+[33mcommit fce75c0d9056bb7328c6cd74e4931994d3342bc0[m
+Author: ScoutAfrica Dev <dev@scoutafrica.local>
+Date:   Tue Jul 28 15:32:39 2026 +0000
+
+    Refine messaging Premium rule (initiate vs reply) + fix a real recursion bug + video upload cap UI
+    
+    Business rule refinement: only the FIRST message in a conversation must
+    come from a premium sender - replies are open to anyone, so a free player
+    can respond to a conversation a premium scout already opened. Migration
+    032 implements this; migration 033 fixes a real bug FOUND VIA TESTING in
+    032's own policy - an infinite recursion error (the policy's subquery read
+    from messages while evaluating a messages policy, re-triggering itself).
+    Would have broken every message send, first or reply, if deployed as-is.
+    Fixed with a SECURITY DEFINER helper function, matching the pattern
+    already used everywhere else in this project - retested all 3 scenarios
+    directly against live data afterward: non-premium blocked from
+    initiating, premium succeeds initiating, and critically, a genuinely
+    non-premium player successfully replies once the conversation has one
+    message. All test data cleaned up both times.
+    
+    Messages UI: added a compact inline upgrade prompt in the input area
+    (not the full PremiumGuard card) shown only when the CURRENT user is
+    non-premium AND the selected conversation has zero messages - mirrors the
+    server-side rule exactly rather than a separate, potentially-inconsistent
+    frontend check.
+    
+    Video uploads: explicitly NOT wrapped in PremiumGuard, per instruction.
+    VideoUpload.tsx now shows the real upload form normally for free users
+    under the 3-video cap (matching the RLS policy from migration 031,
+    unchanged), and only swaps to an upgrade prompt once the limit is
+    reached - the upload UI works exactly as it always has until that point.
+    
+    All files syntax-checked.

@@ -47,21 +47,25 @@ export default function PlayerHeader({ player }: Props) {
 
   return (
     <div className="mb-10 animate-fade-in">
-      <div className="relative w-full h-[340px] rounded-2xl overflow-hidden bg-gray-800 shadow-lg ring-1 ring-black/5">
-        <Image
-          src={player.cover_photo_url || "https://images.unsplash.com/photo-1508098682722-e99c643e7485?w=1200"}
-          alt="Cover"
-          fill
-          className="object-cover"
-          priority
-        />
+      
+      <div className="relative w-full h-[220px] sm:h-[280px] lg:h-[340px] rounded-2xl overflow-hidden bg-gray-800 shadow-lg ring-1 ring-black/5">
+          <Image
+  src={player.cover_photo_url || "/images/default-cover.jpg"}
+  alt="Cover"
+  fill
+  className="object-cover"
+  priority
+/>
+          
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
       </div>
 
-      <div className="relative px-4 sm:px-10">
+      <div className="relative px-4 sm:px-6 lg:px-10">
         {/* Profile Photo */}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-6">
-          <div className="relative w-[180px] h-[180px] -mt-[90px] rounded-full border-4 border-white overflow-hidden shadow-2xl ring-1 ring-black/5 bg-white shrink-0 transition-transform duration-300 hover:scale-[1.02]">
+        <div className="flex flex-col md:flex-row md:items-center gap-6">
+          <div
+  className="relative w-36 h-36 sm:w-44 sm:h-44 lg:w-[180px] lg:h-[180px] -mt-[90px] rounded-full border-4 border-white overflow-hidden"
+>
             {player.photo_url ? (
               <Image
                 src={player.photo_url}
@@ -76,9 +80,10 @@ export default function PlayerHeader({ player }: Props) {
             )}
           </div>
 
-          <div className="pb-2 flex-1">
+          <div className="pb-2 flex-1 w-full text-center md:text-left">
             <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-2xl sm:text-4xl font-bold text-gray-900 tracking-tight">
+             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 tracking-tight break-words">
+
                 {player.full_name || "Unnamed Player"}
               </h1>
 
@@ -130,6 +135,33 @@ export default function PlayerHeader({ player }: Props) {
             </div>
           </div>
         </div>
+         
+
+          <div className="mt-5">
+  <button
+    onClick={async () => {
+      const shareData = {
+        title: player.full_name || "ScoutAfrica Player",
+        text: `Check out ${player.full_name}'s ScoutAfrica profile.`,
+        url: window.location.href,
+      };
+
+      if (navigator.share) {
+        try {
+          await navigator.share(shareData);
+        } catch {
+          // User cancelled sharing
+        }
+      } else {
+        await navigator.clipboard.writeText(window.location.href);
+        alert("✅ Profile link copied to clipboard!");
+      }
+    }}
+    className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white font-medium px-5 py-2.5 rounded-xl transition-all"
+  >
+    🔗 Share Profile
+  </button>
+</div>
 
         {/* Key facts strip */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mt-8">

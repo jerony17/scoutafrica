@@ -21,7 +21,6 @@ import ScoutOverview from "../components/ScoutOverview";
 import Achievements from "../components/Achievements";
 import HighlightVideos from "../components/HighlightVideos";
 import VideoUpload from "../components/VideoUpload";
-import { isPremium } from "../../lib/isPremium";
 import PhotoGallery from "../components/PhotoGallery";
 import PhotoUpload from "../components/PhotoUpload";
 import ScoutNotes from "../components/ScoutNotes";
@@ -52,7 +51,6 @@ export default function PlayerProfile({
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isScoutViewer, setIsScoutViewer] = useState(false);
   const [isOwnProfile, setIsOwnProfile] = useState(false);
-  const [ownerIsPremium, setOwnerIsPremium] = useState(false);
   const [scoutNotes, setScoutNotes] = useState<ScoutNote[]>([]);
 
   const [savingWatchlist, setSavingWatchlist] = useState(false);
@@ -89,13 +87,8 @@ export default function PlayerProfile({
       } = await supabase.auth.getUser();
 
       setCurrentUserId(user?.id ?? null);
-      const ownProfile = Boolean(user && data.user_id === user.id);
-      setIsOwnProfile(ownProfile);
+      setIsOwnProfile(Boolean(user && data.user_id === user.id));
       setIsScoutViewer(user?.user_metadata?.account_type === "scout");
-
-      if (ownProfile && user) {
-        isPremium(user.id).then(setOwnerIsPremium);
-      }
 
       const [videosResult, photosResult, achievementsResult] = await Promise.all([
         supabase
@@ -296,13 +289,13 @@ export default function PlayerProfile({
         <HighlightVideos videos={videos} />
 
         {isOwnProfile && (
-          <VideoUpload
-            setSelectedVideo={setSelectedVideo}
-            uploadVideo={uploadVideo}
-            uploading={uploading}
-            videoCount={videos.length}
-            isPremium={ownerIsPremium}
-          />
+               <VideoUpload
+  setSelectedVideo={setSelectedVideo}
+  uploadVideo={uploadVideo}
+  uploading={uploading}
+  videoCount={videos.length}
+  isPremium={false}
+/> 
         )}
 
         <PhotoGallery photos={photos} />
