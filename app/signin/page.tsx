@@ -2,7 +2,8 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "../lib/supabase";
+import { supabase } from "../lib/supabase"; 
+import Link from "next/link";
 
 export default function SignIn() {
   const router = useRouter();
@@ -74,7 +75,15 @@ export default function SignIn() {
           className="w-full border p-3 rounded mb-6"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-        />
+        />    
+         <div className="text-right mt-2">
+  <Link
+    href="/forgot-password"
+    className="text-sm text-green-600 hover:underline"
+  >
+    Forgot Password?
+  </Link>
+</div>
 
         <button
           type="submit"

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
+import { createServerClient } from "@supabase/ssr"; 
 import { cookies } from "next/headers";
 import { stripe } from "../../../lib/stripe";
 import {
@@ -34,27 +34,38 @@ export async function POST(request: NextRequest) {
     }
 
     const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll: () => cookieStore.getAll(),
-          setAll: () => {
-            // No-op: this route only reads the session to identify the
-            // caller, it never needs to refresh/write auth cookies.
-          },
-        },
-      }
-    );
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+const supabase = createServerClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  {
+    cookies: {
+      getAll() {
+        return cookieStore.getAll();
+      },
+      setAll(cookiesToSet) {
+        try {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            cookieStore.set(name, value, options);
+          });
+        } catch {
+          // Ignore cookie-setting errors in this route.
+        }
+      },
+    },
+  }
+);
 
-    if (!user) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-    }
+const {
+  data: { user },
+} = await supabase.auth.getUser();
+
+if (!user) {
+  return NextResponse.json(
+    { error: "Not authenticated" },
+    { status: 401 }
+  );
+}
 
     const amount = getAmountForCycle(currency, cycle);
     const stripeAmount = toStripeAmount(amount, currency);
