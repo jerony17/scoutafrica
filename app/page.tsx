@@ -2,7 +2,9 @@ import Link from "next/link";
 import { supabase } from "./lib/supabase";
 import Logo from "./components/Logo";
 import Image from "next/image";
-export default async function Home() {
+import PremiumPromoCard from "./components/PremiumPromoCard";
+export default async function Home() {  
+
   const { count: playerCount } = await supabase
     .from("player")
     .select("*", { count: "exact", head: true });
@@ -157,7 +159,7 @@ export default async function Home() {
     </div>
     <p>&copy; {new Date().getFullYear()} ScoutAfrica</p>
   </footer>
-
+<PremiumPromoCard />
 </main> 
   ) ; 
 }
