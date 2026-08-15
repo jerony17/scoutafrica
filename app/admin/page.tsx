@@ -15,7 +15,8 @@ import {
   FiStar,
   FiDollarSign,
   FiBarChart2,
-  FiFlag,
+  FiFlag, 
+  FiImage,
   FiSettings,
   FiMenu,
   FiX,
@@ -50,7 +51,8 @@ const SIDEBAR_ITEMS: SidebarItem[] = [
   { label: "Membership", icon: FiStar, href: "/admin/subscriptions" },
   { label: "Revenue", icon: FiDollarSign, href: "/admin/revenue" },
   { label: "Analytics", icon: FiBarChart2, href: "/admin/analytics" },
-  { label: "Platform Announcements", icon: FiFlag, href: "/admin/announcements" },
+  { label: "Platform Announcements", icon: FiFlag, href: "/admin/announcements" }, 
+  { label: "Advertising", icon: FiImage, href: "/admin/advertising" },
   { label: "Settings", icon: FiSettings, href: "/admin/settings" },
 ];
 
@@ -270,6 +272,10 @@ export default function AdminPanel() {
             createdAt: s.created_at as string,
           })),
         ]
+
+          
+
+
           .filter((e) => Boolean(e.createdAt))
           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
           .slice(0, 8);
@@ -632,7 +638,9 @@ export default function AdminPanel() {
               <Link
                 href="/admin/founder-profile"
                 className="flex items-center gap-4 bg-white rounded-2xl shadow-sm hover:shadow-md border border-gray-100 p-6 transition-all duration-200 hover:border-green-200"
-              >
+              >   
+               
+
                 <div className="w-11 h-11 rounded-xl bg-green-50 flex items-center justify-center shrink-0">
                   <FiUser className="w-5 h-5 text-green-600" />
                 </div>
@@ -641,7 +649,24 @@ export default function AdminPanel() {
                   <p className="text-sm text-gray-500">Edit the public About Us Founder &amp; CEO section</p>
                 </div>
                 <span className="text-gray-300">→</span>
-              </Link>
+              </Link>  
+             
+             <Link
+  href="/admin/player-reports"
+  className="flex items-center gap-4 bg-white rounded-2xl shadow-sm hover:shadow-md"
+>
+  <div className="w-11 h-11 rounded-xl bg-green-50 flex items-center justify-center">
+    📋
+  </div>
+
+  <div>
+    <p className="font-semibold text-gray-900">Player Reports</p>
+    <p className="text-sm text-gray-500">
+      Review and manage player reports
+    </p>
+  </div>
+</Link>
+
             </div>
           </div>
         </div>

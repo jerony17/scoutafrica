@@ -3,10 +3,13 @@
 import Image from "next/image";
 import type { Player } from "../../lib/types";
 import { CountryFlag } from "../../lib/CountryFlag";
-import PremiumBadge from "../../components/PremiumBadge";
+import PremiumBadge from "../../components/PremiumBadge"; 
+import Link from "next/link";
+import { FaEdit } from "react-icons/fa";
 
 type Props = {
   player: Player;
+  isOwnProfile?: boolean;
 };
 
 // Same 10-field completeness measure used on Player Dashboard and Find
@@ -42,7 +45,7 @@ function availabilityStyle(status: Player["availability_status"]) {
   }
 }
 
-export default function PlayerHeader({ player }: Props) {
+export default function PlayerHeader({ player, isOwnProfile }: Props) {
   const completion = profileCompletion(player);
 
   return (
@@ -137,7 +140,16 @@ export default function PlayerHeader({ player }: Props) {
         </div>
          
 
-          <div className="mt-5">
+          <div className="mt-5 flex flex-wrap gap-3">
+            {isOwnProfile && (
+  <Link
+    href="/edit-profile"
+    className="inline-flex items-center gap-2 bg-white border border-gray-200 hover:border-green-600 hover:text-green-700 text-gray-700 font-medium px-5 py-2.5 rounded-xl transition-all"
+  >
+    <FaEdit className="w-4 h-4" />
+    Edit Profile
+  </Link>
+)}
   <button
     onClick={async () => {
       const shareData = {

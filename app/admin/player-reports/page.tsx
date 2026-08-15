@@ -75,16 +75,7 @@ export default function PlayerReportsAdmin() {
     setReloadIndex((i) => i + 1);
   }
 
-  function suspendPlayer(playerId: number | null) {
-    // Placeholder, exactly as requested: ScoutAfrica has no account
-    // suspension mechanism yet (no status column on player for this, and
-    // building real suspension - blocking signin, hiding the profile,
-    // etc. - is a separate feature). This intentionally does not pretend
-    // to do something it can't.
-    alert(
-      `Suspend Player #${playerId ?? "?"} - not implemented yet. This is a placeholder, as requested; building real suspension is a separate feature.`
-    );
-  }
+  
 
   if (checkingAccess) {
     return (
@@ -139,13 +130,14 @@ export default function PlayerReportsAdmin() {
               )}
 
               <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={() => updateReport(report.id, "reviewed")}
-                  disabled={updating}
-                  className="bg-green-600 hover:bg-green-700 text-white text-sm px-4 py-2 rounded-lg disabled:opacity-50"
-                >
-                  Mark as Reviewed
-                </button>
+                
+                  <button
+  onClick={() => updateReport(report.id, "reviewed")}
+  disabled={updating}
+  className="bg-green-600 hover:bg-green-700 text-white text-sm px-4 py-2 rounded-lg disabled:opacity-50"
+>
+  Mark as Reviewed
+</button>
                 <button
                   onClick={() => updateReport(report.id, "dismissed")}
                   disabled={updating}
@@ -153,12 +145,7 @@ export default function PlayerReportsAdmin() {
                 >
                   Dismiss
                 </button>
-                <button
-                  onClick={() => suspendPlayer(report.player_id)}
-                  className="bg-red-100 hover:bg-red-200 text-red-700 text-sm px-4 py-2 rounded-lg"
-                >
-                  Suspend Player
-                </button>
+                
               </div>
             </div>
           ))}

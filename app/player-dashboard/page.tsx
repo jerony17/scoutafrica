@@ -7,7 +7,8 @@ import Image from "next/image";
 import UpgradeBanner from "../components/UpgradeBanner";
 import { supabase } from "../lib/supabase";
 import { isArrayOf, isCareerHistoryEntry, isPlayer } from "../lib/types";
-import type { Player } from "../lib/types";
+import type { Player } from "../lib/types"; 
+import { FaEdit } from "react-icons/fa";
 
 export default function PlayerDashboard() {
   const router = useRouter();
@@ -217,20 +218,28 @@ const [missingFields, setMissingFields] = useState<string[]>([]);
         </div>
 
         <div className="mb-8 flex gap-3 flex-wrap">
-          <Link
-            href="/messages"
-            className="inline-block bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-xl font-semibold"
-          >
-            📨 Messages
-          </Link>
-          <Link
-            href="/membership"
-            className="inline-block bg-white border border-gray-200 hover:border-amber-400 hover:text-amber-600 text-gray-700 px-5 py-2.5 rounded-xl font-semibold"
-          >
-            ⭐ Subscription
-          </Link>
-        </div>
+  <Link
+    href="/edit-profile"
+    className="inline-flex items-center gap-2 bg-white border border-gray-200 hover:border-green-600 hover:text-green-700 text-gray-700 px-5 py-2.5 rounded-xl font-semibold"
+  >
+    <FaEdit className="w-4 h-4" />
+    Edit Profile
+  </Link>
 
+  <Link
+    href="/messages"
+    className="inline-block bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-xl font-semibold"
+  >
+    📨 Messages
+  </Link>
+
+  <Link
+    href="/membership"
+    className="inline-block bg-white border border-gray-200 hover:border-amber-400 hover:text-amber-600 text-gray-700 px-5 py-2.5 rounded-xl font-semibold"
+  >
+    ⭐ Subscription
+  </Link>
+</div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
 
           <div className="bg-white p-6 rounded-xl shadow">

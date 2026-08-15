@@ -296,6 +296,51 @@ export function isPlayerReport(value: unknown): value is PlayerReport {
     "reason" in value &&
     "status" in value
   );
+}      
+
+export type AdPlacement =
+  | "Homepage"
+  | "Player Profiles"
+  | "Find Players"
+  | "Club Pages"
+  | "Dashboard"
+  | "All Website";
+
+export type AdStatus =
+  | "Draft"
+  | "Pending"
+  | "Active"
+  | "Paused"
+  | "Expired";
+
+export interface Advertisement {
+  id: number;
+  title: string;
+  advertiser_name: string;
+  description: string | null;
+  image_url: string | null;
+  destination_url: string;
+  placement: AdPlacement;
+  start_date: string;
+  end_date: string | null;
+  status: AdStatus;
+  impressions: number;
+  clicks: number;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export function isAdvertisement(
+  value: unknown
+): value is Advertisement {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "id" in value &&
+    "title" in value &&
+    "destination_url" in value &&
+    "status" in value
+  );
 }
 
 export interface Notification {
