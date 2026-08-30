@@ -422,6 +422,30 @@ export function isClubProfile(value: unknown): value is ClubProfile {
     "user_id" in value &&
     "club_name" in value
   );
+}    
+
+export interface AcademyProfile {
+  id: number;
+  user_id: string;
+  academy_name: string | null;
+  logo_url: string | null;
+  cover_photo_url: string | null;
+  description: string | null;
+  country: string | null;
+  city: string | null;
+  website: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export function isAcademyProfile(value: unknown): value is AcademyProfile {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "id" in value &&
+    "user_id" in value &&
+    "academy_name" in value
+  );
 }
 
 export function isClubPrivateInfo(value: unknown): value is ClubPrivateInfo {

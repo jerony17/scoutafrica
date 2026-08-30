@@ -39,8 +39,11 @@ export default function SignIn() {
     } else if (accountType === "club") {
       router.push("/club-dashboard");
     } else if (accountType === "agent") {
-      router.push("/agent-dashboard");
-    } else {
+      router.push("/agent-dashboard"); 
+    } else if (accountType === "academy") {
+  router.push("/academy-dashboard");
+    } else {   
+    
       alert("Unknown account type.");
     }
   }

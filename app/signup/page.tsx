@@ -47,8 +47,9 @@ export default function Signup() {
     // verification queue reads from. Best-effort: if there's no active
     // session yet (email confirmation required), this silently doesn't
     // insert - the row isn't required for signup itself to succeed, and
-    // account_type is still stored on the auth user either way.
-    if ((accountType === "club" || accountType === "scout") && data.user) {
+    // account_type is still stored on the auth user either way. 
+
+    if ((accountType === "club" || accountType === "scout" || accountType === "academy") && data.user) {
       const { error: verificationError } = await supabase
         .from("account_verifications")
         .insert({
@@ -96,7 +97,8 @@ export default function Signup() {
           <option value="player">Football Player</option>
           <option value="scout">Scout</option>
           <option value="club">Football Club</option>
-          <option value="agent">Football Agent</option>
+          <option value="agent">Football Agent</option> 
+          <option value="academy">Football Academy</option>
         </select>
 
         <input

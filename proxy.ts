@@ -37,7 +37,8 @@ import { NextResponse, type NextRequest } from "next/server";
 const PLAYER_ROUTES = ["/player-dashboard"];
 const SCOUT_ROUTES = ["/scout-dashboard"];
 const CLUB_ROUTES = ["/club-dashboard"];
-const AGENT_ROUTES = ["/agent-dashboard"];
+const AGENT_ROUTES = ["/agent-dashboard"]; 
+const ACADEMY_ROUTES = ["/academy-dashboard"];
 const ADMIN_ROUTES = ["/admin"];
 
 function matches(path: string, routes: string[]) {
@@ -77,7 +78,8 @@ export async function proxy(request: NextRequest) {
     matches(path, PLAYER_ROUTES) ||
     matches(path, SCOUT_ROUTES) ||
     matches(path, CLUB_ROUTES) ||
-    matches(path, AGENT_ROUTES) ||
+    matches(path, AGENT_ROUTES) || 
+    matches(path, ACADEMY_ROUTES) ||
     matches(path, ADMIN_ROUTES);
 
   if (!isProtected) {
@@ -119,6 +121,10 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 
+  if (matches(path, ACADEMY_ROUTES) && accountType !== "academy") {
+  return NextResponse.redirect(new URL("/", request.url));
+}
+
   return response;
 }
 
@@ -128,6 +134,7 @@ export const config = {
     "/player-dashboard/:path*",
     "/scout-dashboard/:path*",
     "/club-dashboard/:path*",
-    "/agent-dashboard/:path*",
+    "/agent-dashboard/:path*", 
+    "/academy-dashboard/:path*",
   ],
 };
