@@ -72,8 +72,13 @@ export default async function Home() {
 
 </nav>
 
-      {/* Hero Section */}
-  <section className="relative overflow-hidden min-h-[85vh] flex flex-col items-center justify-center text-center px-6">
+      {/* Hero Section - min-h/justify are mobile-compacted (min-h-0,
+          justify-start, small pt) so the stacked mobile content (footballer,
+          logo, headline, description, buttons, cards) isn't forced to fill
+          85vh with extra centered whitespace above/below it; sm: reverts to
+          the exact original min-h-[85vh]/justify-center/no-pt desktop
+          behavior, unchanged. */}
+  <section className="relative overflow-hidden min-h-0 sm:min-h-[85vh] flex flex-col items-center justify-start sm:justify-center text-center px-6 pt-8 sm:pt-0">
   
   <div className="absolute inset-0 bg-gradient-to-b from-green-50 via-white to-green-50"></div>
 <div className="absolute inset-0 opacity-20 pointer-events-none">
@@ -107,8 +112,9 @@ export default async function Home() {
   {/* Mobile-only footballer - normal document flow (not absolute), sized
       down and centered above the logo/headline so it's visible on phones
       without covering any text. Hidden at sm and up, where the decorative
-      absolute version below (unchanged from before) takes over instead. */}
-  <div className="sm:hidden mb-3 w-[180px] mx-auto pointer-events-none select-none" aria-hidden="true">
+      absolute version below (unchanged from before) takes over instead.
+      mb tightened (mb-3 -> mb-1) to close the gap to the logo below it. */}
+  <div className="sm:hidden mb-1 w-[180px] mx-auto pointer-events-none select-none" aria-hidden="true">
     <Image
       src="/branding/hero-footballer.png"
       alt=""
@@ -118,15 +124,27 @@ export default async function Home() {
     />
   </div>
 
+  {/* Logo: two instances, same pattern as the footballer above. The
+      mobile-only copy is rendered smaller (260x146, same aspect ratio as
+      400x225) purely to close the visual gap to the headline below it on
+      small screens - the desktop copy is untouched at its original
+      400x225. */}
+  <Logo
+    variant="hero"
+    size="medium"
+    width={260}
+    height={146}
+    className="mb-1 sm:hidden"
+  />
   <Logo
     variant="hero"
     size="medium"
     width={400}
     height={225}
-    className="mb-1"
+    className="mb-1 hidden sm:block"
   />
 
-  <h2 className="mt-1 text-2xl sm:text-3xl font-bold text-green-700 max-w-3xl leading-tight">
+  <h2 className="mt-0 sm:mt-1 text-2xl sm:text-3xl font-bold text-green-700 max-w-3xl leading-tight">
     Where African Football Dreams Meet Global Opportunity.
   </h2>
 
