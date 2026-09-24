@@ -77,9 +77,10 @@ export default async function Home() {
           logo, headline, description, buttons, cards) isn't forced to fill
           85vh with extra centered whitespace above/below it; sm: reverts to
           the exact original min-h-[85vh]/justify-center/no-pt desktop
-          behavior, unchanged. pt tightened further (pt-8 -> pt-3) per
-          follow-up feedback asking for the footballer to start higher. */}
-  <section className="relative overflow-hidden min-h-0 sm:min-h-[85vh] flex flex-col items-center justify-start sm:justify-center text-center px-6 pt-3 sm:pt-0">
+          behavior, unchanged. pt tightened further (pt-8 -> pt-3 -> pt-2)
+          per follow-up feedback asking for the "Join as Organization"
+          button to be visible without scrolling. */}
+  <section className="relative overflow-hidden min-h-0 sm:min-h-[85vh] flex flex-col items-center justify-start sm:justify-center text-center px-6 pt-2 sm:pt-0">
   
   <div className="absolute inset-0 bg-gradient-to-b from-green-50 via-white to-green-50"></div>
 <div className="absolute inset-0 opacity-20 pointer-events-none">
@@ -126,17 +127,21 @@ export default async function Home() {
     />
   </div>
 
-  {/* Logo: two instances, same pattern as the footballer above. The
-      mobile-only copy keeps its 260x146 size unchanged (explicitly not
-      shrunk further per follow-up feedback - only the margins around it
-      were tightened, mb-1 -> mb-0) - the desktop copy is untouched at its
-      original 400x225. */}
+  {/* Logo: two instances, same pattern as the footballer above. Size is
+      unchanged (260x146 mobile / 400x225 desktop, explicitly not shrunk).
+      mb-0 (no positive margin left to remove) plus a small -mt-2 on the
+      mobile copy only: the remaining visual gap above/below the logo at
+      zero margin is coming from transparent padding baked into the PNG
+      assets themselves, not from any Tailwind spacing left to trim - this
+      pulls the logo up into that built-in whitespace rather than adding a
+      large/negative-margin risk of real overlap. Desktop copy (hidden at
+      this breakpoint anyway) is untouched. */}
   <Logo
     variant="hero"
     size="medium"
     width={260}
     height={146}
-    className="mb-0 sm:hidden"
+    className="-mt-2 mb-0 sm:hidden"
   />
   <Logo
     variant="hero"
@@ -146,20 +151,29 @@ export default async function Home() {
     className="mb-1 hidden sm:block"
   />
 
-  <h2 className="mt-0 sm:mt-1 text-2xl sm:text-3xl font-bold text-green-700 max-w-3xl leading-tight">
+  {/* Same reasoning as the logo above: mt-0 already removed all positive
+      margin, so a small -mt-1 on mobile only closes the remaining gap
+      (again, mostly the logo asset's own bottom whitespace) without
+      touching the sm:mt-1 desktop value at all. */}
+  <h2 className="-mt-1 sm:mt-1 text-2xl sm:text-3xl font-bold text-green-700 max-w-3xl leading-tight">
     Where African Football Dreams Meet Global Opportunity.
   </h2>
 
-  {/* mt tightened on mobile only (mt-2 -> mt-1); sm:mt-2 keeps desktop
-      exactly as before. */}
-  <p className="mt-1 sm:mt-2 text-base text-gray-600 max-w-2xl leading-7">
+  {/* mt tightened further on mobile only (mt-1 -> mt-0); sm:mt-2 keeps
+      desktop exactly as before. */}
+  <p className="mt-0 sm:mt-2 text-base text-gray-600 max-w-2xl leading-7">
     Create your profile. Get discovered by verified clubs,
     academies, scouts, and agents. Your football journey starts here.
   </p>
 
-  {/* mt tightened on mobile only (mt-3 -> mt-2); sm:mt-3 keeps desktop
-      exactly as before. */}
-  <div className="mt-2 sm:mt-3 flex flex-col sm:flex-row gap-4">
+  {/* mt tightened further on mobile only (mt-2 -> mt-1); sm:mt-3 keeps
+      desktop exactly as before. gap tightened too (gap-4 -> gap-2 on
+      mobile only) - on mobile the buttons stack vertically (flex-col), so
+      this shortens the space between "Join as Player" and "Join as
+      Organization" specifically to help the second button fit on screen;
+      sm:gap-4 preserves the original horizontal spacing between the two
+      side-by-side desktop buttons untouched. */}
+  <div className="mt-1 sm:mt-3 flex flex-col sm:flex-row gap-2 sm:gap-4">
 
     <Link href="/register-player">
       <button className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg">
