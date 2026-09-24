@@ -1,11 +1,20 @@
 import Link from "next/link";
 import { FaCrown } from "react-icons/fa";
 
+// Positioning is responsive: on mobile this renders in normal document
+// flow (wherever its caller places it) so it can never float/overlap
+// whatever scrolls beneath it on a small screen. At sm and up it reverts
+// to the original fixed bottom-left corner treatment, pixel-for-pixel
+// unchanged. text-left is explicit because this component may now be
+// mounted inside a `text-center` ancestor (the homepage hero section) -
+// previously it was always rendered outside any such ancestor, so its
+// text alignment relied on inheriting nothing; making it explicit keeps
+// the original left-aligned look regardless of where it's mounted.
 export default function PremiumPromoCard() {
   return (
     <Link
       href="/membership"
-      className="fixed bottom-6 left-6 z-40 flex items-center gap-2.5 bg-green-900 border-2 border-amber-400 rounded-xl shadow-xl px-3 py-2.5 max-w-[245px] hover:shadow-2xl transition-shadow"
+      className="static sm:fixed sm:bottom-6 sm:left-6 z-40 flex items-center gap-2.5 bg-green-900 border-2 border-amber-400 rounded-xl shadow-xl px-3 py-2.5 w-full sm:w-auto sm:max-w-[245px] text-left hover:shadow-2xl transition-shadow"
     >
       <FaCrown className="text-amber-400 text-xl shrink-0" />
 

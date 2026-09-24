@@ -31,33 +31,39 @@ export default async function Home() {
   ).size;
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-green-50 to-white">
+    <main className="min-h-screen overflow-x-hidden bg-gradient-to-b from-green-50 to-white">
 
-      <nav className="sticky top-0 z-50 flex items-center justify-between px-8 py-3 bg-white border-b border-gray-200 shadow-sm">
+      {/* Nav sizing/spacing below is responsive so the logo+wordmark and the
+          two buttons never collide or squash on narrow phones: tighter
+          padding/gaps and smaller buttons below sm, back to the original
+          sizes at sm and up. min-w-0 + truncate on the left side and
+          shrink-0 + whitespace-nowrap on the buttons stop either side from
+          being crushed by the other on very narrow viewports. */}
+      <nav className="sticky top-0 z-50 flex items-center justify-between gap-2 px-4 sm:px-8 py-3 bg-white border-b border-gray-200 shadow-sm">
 
-  <Link href="/" className="flex items-center gap-3 hover:opacity-90 transition-opacity">
+  <Link href="/" className="flex items-center gap-2 sm:gap-3 min-w-0 hover:opacity-90 transition-opacity">
      <Logo
   variant="badge"
   size="compact"
 />
-  
 
 
-    <h1 className="text-lg font-bold text-green-700">
+
+    <h1 className="text-base sm:text-lg font-bold text-green-700 truncate">
       ScoutAfrica
     </h1>
   </Link>
 
-  <div className="flex gap-3">
+  <div className="flex gap-2 sm:gap-3 shrink-0">
 
     <Link href="/signin">
-      <button className="px-4 py-2 border border-green-600 rounded-lg text-green-700">
+      <button className="px-3 py-1.5 text-sm sm:px-4 sm:py-2 sm:text-base border border-green-600 rounded-lg text-green-700 whitespace-nowrap">
         Login
       </button>
     </Link>
 
     <Link href="/signup">
-      <button className="px-4 py-2 bg-green-600 text-white rounded-lg">
+      <button className="px-3 py-1.5 text-sm sm:px-4 sm:py-2 sm:text-base bg-green-600 text-white rounded-lg whitespace-nowrap">
         Register
       </button>
     </Link>
@@ -96,42 +102,21 @@ export default async function Home() {
   />
 </div>
 
-{/* Our Mission - informational only, not a link/button. Right side,
-    mirroring PremiumPromoCard's bottom-left placement/inset (bottom-6),
-    approximately the same footprint (max-w-[250px] vs its max-w-[245px]).
-    z-[1]: same layer as the footballer, behind the z-10 centered content.
-    Hidden below sm, matching the footballer's mobile treatment, so it
-    can't crowd the headline/buttons on small phones. */}
-<div className="hidden sm:block absolute right-6 bottom-6 z-[1] max-w-[250px] bg-white/95 border-2 border-green-800 rounded-xl shadow-xl px-4 py-3.5">
-  <div className="flex items-center gap-1.5 mb-1.5">
-    <FiGlobe className="text-green-700 text-base shrink-0" />
-    <p className="text-amber-600 text-[9px] font-semibold tracking-wider uppercase leading-none">
-      ScoutAfrica Mission
-    </p>
-  </div>
-
-  <p className="text-green-900 text-sm font-bold leading-snug mb-1.5">
-    Connecting Talent. Creating Opportunities.
-  </p>
-
-  <p className="text-gray-600 text-[11px] leading-snug mb-2">
-    We help African football talent connect with clubs, academies, scouts, and agents around the world.
-  </p>
-
-  <ul className="space-y-1">
-    <li className="flex items-start gap-1.5 text-[10px] text-gray-700 leading-snug">
-      <span className="text-amber-500 mt-0.5">●</span> Discover football talent
-    </li>
-    <li className="flex items-start gap-1.5 text-[10px] text-gray-700 leading-snug">
-      <span className="text-amber-500 mt-0.5">●</span> Connect players with opportunities
-    </li>
-    <li className="flex items-start gap-1.5 text-[10px] text-gray-700 leading-snug">
-      <span className="text-amber-500 mt-0.5">●</span> Build a stronger football network
-    </li>
-  </ul>
-</div>
-
 <div className="relative z-10 flex flex-col items-center text-center">
+
+  {/* Mobile-only footballer - normal document flow (not absolute), sized
+      down and centered above the logo/headline so it's visible on phones
+      without covering any text. Hidden at sm and up, where the decorative
+      absolute version below (unchanged from before) takes over instead. */}
+  <div className="sm:hidden mb-3 w-[180px] mx-auto pointer-events-none select-none" aria-hidden="true">
+    <Image
+      src="/branding/hero-footballer.png"
+      alt=""
+      width={1371}
+      height={1147}
+      className="w-full h-auto"
+    />
+  </div>
 
   <Logo
     variant="hero"
@@ -166,6 +151,50 @@ export default async function Home() {
 
   </div>
 
+</div>
+
+{/* Mission + Premium cards. On mobile these render in NORMAL DOCUMENT
+    FLOW, stacked vertically with visible spacing, right after the CTA
+    buttons - this is what actually shows on phones, where the old
+    absolute/fixed positioning used to hide the Mission card entirely and
+    let the Premium card float over whatever scrolled underneath it. At sm
+    and up each card switches back to its original absolute/fixed desktop
+    styling (unchanged pixel-for-pixel from before). This wrapper has no
+    `position` of its own, so it doesn't change what absolute/fixed
+    descendants anchor to - they still resolve against this <section> (for
+    the Mission card) or the viewport (for the Premium card), exactly as
+    before. */}
+<div className="flex flex-col items-center gap-4 w-full mt-6 sm:mt-0 sm:gap-0">
+  <div className="relative sm:absolute sm:right-6 sm:bottom-6 sm:z-[1] w-full max-w-sm sm:w-auto sm:max-w-[250px] bg-white/95 border-2 border-green-800 rounded-xl shadow-xl px-4 py-3.5 text-left">
+    <div className="flex items-center gap-1.5 mb-1.5">
+      <FiGlobe className="text-green-700 text-base shrink-0" />
+      <p className="text-amber-600 text-[9px] font-semibold tracking-wider uppercase leading-none">
+        ScoutAfrica Mission
+      </p>
+    </div>
+
+    <p className="text-green-900 text-sm font-bold leading-snug mb-1.5">
+      Connecting Talent. Creating Opportunities.
+    </p>
+
+    <p className="text-gray-600 text-[11px] leading-snug mb-2">
+      We help African football talent connect with clubs, academies, scouts, and agents around the world.
+    </p>
+
+    <ul className="space-y-1">
+      <li className="flex items-start gap-1.5 text-[10px] text-gray-700 leading-snug">
+        <span className="text-amber-500 mt-0.5">●</span> Discover football talent
+      </li>
+      <li className="flex items-start gap-1.5 text-[10px] text-gray-700 leading-snug">
+        <span className="text-amber-500 mt-0.5">●</span> Connect players with opportunities
+      </li>
+      <li className="flex items-start gap-1.5 text-[10px] text-gray-700 leading-snug">
+        <span className="text-amber-500 mt-0.5">●</span> Build a stronger football network
+      </li>
+    </ul>
+  </div>
+
+  <PremiumPromoCard />
 </div>
 
 </section>
@@ -236,7 +265,6 @@ export default async function Home() {
     </div>
     <p>&copy; {new Date().getFullYear()} ScoutAfrica</p>
   </footer>
-<PremiumPromoCard />
-</main> 
+</main>
   ) ; 
 }
