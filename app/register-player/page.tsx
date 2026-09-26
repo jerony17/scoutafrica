@@ -124,7 +124,10 @@ export default function RegisterPlayer() {
         .toLowerCase()
         .replace(/[^a-z0-9.]+/g, "-")
         .replace(/-+/g, "-");
-      const fileName = `${Date.now()}-${safePhotoName}`;
+      // Owner-scoped path (<auth.uid()>/...) so the storage policy can
+      // enforce that only this user may write/replace/delete this object -
+      // see supabase/migrations/046_secure_legacy_storage_buckets.sql.
+      const fileName = `${user.id}/${Date.now()}-${safePhotoName}`;
 
       const { error: uploadError } = await supabase.storage
         .from("player-photos")

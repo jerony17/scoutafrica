@@ -181,9 +181,24 @@ export default function PlayerProfile({
   async function uploadVideo() {
     if (!selectedVideo || !player || !player.user_id) return;
 
+    // Owner-scoped path (<auth.uid()>/...) requires the actual
+    // authenticated caller's own id, not player.user_id (the id of the
+    // profile being *viewed*, which only equals the caller's own id when
+    // the UI's isOwnProfile gate holds) - the storage policy checks this
+    // same id, so it must come from the caller's own verified session.
+    // See supabase/migrations/046_secure_legacy_storage_buckets.sql.
+    const {
+      data: { user: caller },
+    } = await supabase.auth.getUser();
+
+    if (!caller) {
+      alert("Please sign in to upload a video.");
+      return;
+    }
+
     setUploading(true);
 
-    const fileName = `${Date.now()}-${selectedVideo.name}`;
+    const fileName = `${caller.id}/${Date.now()}-${selectedVideo.name}`;
 
     const { error: uploadError } = await supabase.storage
       .from("highlight-videos")
@@ -217,9 +232,21 @@ export default function PlayerProfile({
   async function uploadPhoto() {
     if (!selectedPhoto || !player || !player.user_id) return;
 
+    // Owner-scoped path (<auth.uid()>/...) requires the actual
+    // authenticated caller's own id, not player.user_id - see the
+    // matching comment in uploadVideo() above.
+    const {
+      data: { user: caller },
+    } = await supabase.auth.getUser();
+
+    if (!caller) {
+      alert("Please sign in to upload a photo.");
+      return;
+    }
+
     setUploadingPhoto(true);
 
-    const fileName = `${Date.now()}-${selectedPhoto.name}`;
+    const fileName = `${caller.id}/${Date.now()}-${selectedPhoto.name}`;
 
     const { error: uploadError } = await supabase.storage
       .from("player-photos")
