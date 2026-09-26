@@ -15,7 +15,8 @@ import {
   FiStar,
   FiDollarSign,
   FiBarChart2,
-  FiFlag, 
+  FiFlag,
+  FiAward,
   FiImage,
   FiSettings,
   FiMenu,
@@ -38,6 +39,11 @@ type SidebarItem = {
   icon: React.ComponentType<{ className?: string }>;
   href: string;
   active?: boolean;
+  // No page exists at `href` yet (confirmed against app/admin/** on disk).
+  // Rendered as a disabled, clearly-labeled item instead of a live Link so
+  // clicking it can never 404/error - see the audit note above the sidebar
+  // render for why these aren't just silently pointed at real pages.
+  comingSoon?: boolean;
 };
 
 const SIDEBAR_ITEMS: SidebarItem[] = [
@@ -51,17 +57,19 @@ const SIDEBAR_ITEMS: SidebarItem[] = [
   { label: "Membership", icon: FiStar, href: "/admin/subscriptions" },
   { label: "Revenue", icon: FiDollarSign, href: "/admin/revenue" },
   { label: "Analytics", icon: FiBarChart2, href: "/admin/analytics" },
-  { label: "Platform Announcements", icon: FiFlag, href: "/admin/announcements" }, 
+  { label: "Featured Players", icon: FiAward, href: "/admin/featured-players" },
+  { label: "Platform Announcements", icon: FiFlag, href: "/admin/announcements" },
   { label: "Advertising", icon: FiImage, href: "/admin/advertising" },
   { label: "Settings", icon: FiSettings, href: "/admin/settings" },
 ];
 
-const QUICK_ACTIONS = [
+const QUICK_ACTIONS: { label: string; href: string; comingSoon?: boolean }[] = [
   { label: "Verification Center", href: "/admin/verifications" },
   { label: "Review Support Tickets", href: "/admin/support-tickets" },
   { label: "Manage Players", href: "/admin/players" },
   { label: "Manage Clubs", href: "/admin/clubs" },
   { label: "Membership", href: "/admin/subscriptions" },
+  { label: "Manage Featured Players", href: "/admin/featured-players" },
   { label: "Create Announcement", href: "/admin/announcements" },
 ];
 
@@ -366,20 +374,34 @@ export default function AdminPanel() {
         </div>
 
         <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1" aria-label="Founder dashboard navigation">
-          {SIDEBAR_ITEMS.map((item) => (
-            <Link
-              key={item.label}
-              href={item.href}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
-                item.active
-                  ? "bg-green-600 text-white"
-                  : "text-white/70 hover:bg-white/10 hover:text-white"
-              }`}
-            >
-              <item.icon className="w-4.5 h-4.5 shrink-0" />
-              {item.label}
-            </Link>
-          ))}
+          {SIDEBAR_ITEMS.map((item) =>
+            item.comingSoon ? (
+              <div
+                key={item.label}
+                title="Coming soon"
+                className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-white/30 cursor-not-allowed"
+              >
+                <item.icon className="w-4.5 h-4.5 shrink-0" />
+                <span className="flex-1">{item.label}</span>
+                <span className="text-[10px] font-semibold uppercase tracking-wide bg-white/10 text-white/50 px-1.5 py-0.5 rounded shrink-0">
+                  Soon
+                </span>
+              </div>
+            ) : (
+              <Link
+                key={item.label}
+                href={item.href}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                  item.active
+                    ? "bg-green-600 text-white"
+                    : "text-white/70 hover:bg-white/10 hover:text-white"
+                }`}
+              >
+                <item.icon className="w-4.5 h-4.5 shrink-0" />
+                {item.label}
+              </Link>
+            )
+          )}
         </nav>
       </aside>
 
@@ -438,16 +460,29 @@ export default function AdminPanel() {
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                 <h2 className="font-bold text-gray-900 mb-4">Quick Actions</h2>
                 <div className="grid sm:grid-cols-2 gap-3">
-                  {QUICK_ACTIONS.map((action) => (
-                    <Link
-                      key={action.label}
-                      href={action.href}
-                      className="flex items-center justify-between bg-gray-50 hover:bg-green-50 border border-gray-100 hover:border-green-200 rounded-xl px-4 py-3.5 text-sm font-medium text-gray-700 hover:text-green-800 transition-all duration-200"
-                    >
-                      {action.label}
-                      <span className="text-gray-300">→</span>
-                    </Link>
-                  ))}
+                  {QUICK_ACTIONS.map((action) =>
+                    action.comingSoon ? (
+                      <div
+                        key={action.label}
+                        title="Coming soon"
+                        className="flex items-center justify-between bg-gray-50 border border-gray-100 rounded-xl px-4 py-3.5 text-sm font-medium text-gray-400 cursor-not-allowed"
+                      >
+                        {action.label}
+                        <span className="text-[10px] font-semibold uppercase tracking-wide bg-gray-200 text-gray-500 px-1.5 py-0.5 rounded shrink-0">
+                          Soon
+                        </span>
+                      </div>
+                    ) : (
+                      <Link
+                        key={action.label}
+                        href={action.href}
+                        className="flex items-center justify-between bg-gray-50 hover:bg-green-50 border border-gray-100 hover:border-green-200 rounded-xl px-4 py-3.5 text-sm font-medium text-gray-700 hover:text-green-800 transition-all duration-200"
+                      >
+                        {action.label}
+                        <span className="text-gray-300">→</span>
+                      </Link>
+                    )
+                  )}
                 </div>
               </div>
 

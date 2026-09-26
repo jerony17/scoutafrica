@@ -115,7 +115,16 @@ export default function RegisterPlayer() {
     let photoUrl = "";
 
     if (photo) {
-      const fileName = `${Date.now()}-${photo.name}`;
+      // Sanitize the original filename before using it as a Storage key -
+      // defensive hygiene, not a fix for a currently-reproducing bug (see
+      // the investigation note below). Mirrors the slugify() pattern
+      // already used above, keeping the extension's dot intact.
+      const safePhotoName = photo.name
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9.]+/g, "-")
+        .replace(/-+/g, "-");
+      const fileName = `${Date.now()}-${safePhotoName}`;
 
       const { error: uploadError } = await supabase.storage
         .from("player-photos")

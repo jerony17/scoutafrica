@@ -159,16 +159,56 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     throw error; // triggers the 500 -> Stripe retry path in the outer catch
   }
 
-  await supabaseAdmin.from("payment_history").insert({
-    subscription_id: subscriptionRow.id,
-    payment_provider: "stripe",
-    payment_method: "card",
-    amount: amount ?? 0,
-    currency: currency ?? "JPY",
-    transaction_reference: session.id,
-    payment_status: "success",
-    payment_date: new Date().toISOString(),
-  });
+  // Canonical dedup key: the Stripe INVOICE id, not the Checkout Session
+  // id - this is the same identifier invoice.payment_succeeded's handler
+  // below uses for this exact same payment, so whichever event arrives
+  // first records the row and the other safely no-ops on the shared
+  // unique index (payment_history_provider_reference_unique, migration
+  // 044) instead of creating a duplicate. Read directly from the session
+  // object itself ("ID of the invoice created by the Checkout Session,
+  // if it exists" - Stripe's own field for exactly this purpose), not
+  // derived from the subscription, so there is no extra API call and no
+  // dependency on subscription state.
+  //
+  // Deliberately NOT falling back to session.id if this is ever null -
+  // a fallback would produce a DIFFERENT reference than
+  // invoice.payment_succeeded's invoice.id for the same payment, which
+  // would defeat the dedup entirely (both rows would insert, each
+  // "unique" under its own different value). Subscription activation
+  // above this point is unaffected either way; only the payment_history
+  // record for this event is skipped, and invoice.payment_succeeded
+  // (which carries its own invoice.id directly, no derivation needed)
+  // remains a reliable independent path to record it.
+  const invoiceId = typeof session.invoice === "string" ? session.invoice : session.invoice?.id ?? null;
+
+  if (!invoiceId) {
+    console.error(
+      "checkout.session.completed has no invoice id - skipping payment_history insert " +
+        "to avoid recording it under a different reference than invoice.payment_succeeded will use. " +
+        `Subscription activation for user ${userId} still proceeded normally. ` +
+        "This payment should still be recorded when invoice.payment_succeeded arrives for it."
+    );
+    return;
+  }
+
+  const { error: paymentHistoryError } = await supabaseAdmin.from("payment_history").upsert(
+    {
+      subscription_id: subscriptionRow.id,
+      payment_provider: "stripe",
+      payment_method: "card",
+      amount: amount ?? 0,
+      currency: currency ?? "JPY",
+      transaction_reference: invoiceId,
+      payment_status: "success",
+      payment_date: new Date().toISOString(),
+    },
+    { onConflict: "payment_provider,transaction_reference", ignoreDuplicates: true }
+  );
+
+  if (paymentHistoryError) {
+    console.error("Failed to record payment_history on checkout completion:", paymentHistoryError);
+    throw paymentHistoryError; // triggers the 500 -> Stripe retry path in the outer catch
+  }
 }
 
 // === customer.subscription.updated ===
@@ -288,16 +328,31 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
   }
 
   if (existing) {
-    await supabaseAdmin.from("payment_history").insert({
-      subscription_id: existing.id,
-      payment_provider: "stripe",
-      payment_method: "card",
-      amount: (invoice.amount_paid || 0) / (existing.currency === "JPY" ? 1 : 100),
-      currency: existing.currency || "JPY",
-      transaction_reference: invoice.id,
-      payment_status: "success",
-      payment_date: new Date().toISOString(),
-    });
+    // Same shared unique index as handleCheckoutCompleted above
+    // (payment_history_provider_reference_unique, migration 044) - if
+    // this is the initial payment and checkout.session.completed's
+    // handler already recorded it under this same invoice.id, this
+    // upsert safely no-ops instead of creating a duplicate row. For a
+    // renewal, invoice.id is a new, distinct invoice every period, so a
+    // fresh row is still inserted exactly as before.
+    const { error: paymentHistoryError } = await supabaseAdmin.from("payment_history").upsert(
+      {
+        subscription_id: existing.id,
+        payment_provider: "stripe",
+        payment_method: "card",
+        amount: (invoice.amount_paid || 0) / (existing.currency === "JPY" ? 1 : 100),
+        currency: existing.currency || "JPY",
+        transaction_reference: invoice.id,
+        payment_status: "success",
+        payment_date: new Date().toISOString(),
+      },
+      { onConflict: "payment_provider,transaction_reference", ignoreDuplicates: true }
+    );
+
+    if (paymentHistoryError) {
+      console.error("Failed to record payment_history on invoice.payment_succeeded:", paymentHistoryError);
+      throw paymentHistoryError;
+    }
   }
 }
 

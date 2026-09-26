@@ -1,0 +1,37 @@
+-- Migration: 044_payment_history_dedupe
+--
+-- Fixes pre-launch audit Issue #2: a subscriber's first Stripe payment
+-- could be recorded twice in payment_history, because
+-- checkout.session.completed and invoice.payment_succeeded both fire for
+-- one initial payment and each handler did an unconditional INSERT with
+-- no shared, canonical reference. The same class of bug also applies to
+-- any webhook (Stripe or Paystack) being redelivered on retry.
+--
+-- VERIFIED SAFE TO APPLY (checked directly against live data before
+-- writing this): payment_history currently has 3 rows, all
+-- payment_provider = 'stripe', all with distinct transaction_reference
+-- values, and a GROUP BY ... HAVING count(*) > 1 query returns zero
+-- rows - no existing duplicates, no existing NULLs, no Paystack rows.
+-- This index can be created with no data cleanup and no risk of the
+-- CREATE failing against current data.
+--
+-- This migration ONLY adds an index - it does not UPDATE or DELETE any
+-- existing row, so all existing payment history is preserved exactly as
+-- it is.
+--
+-- NULL transaction_reference values remain unconstrained by design:
+-- Postgres treats every NULL as distinct from every other NULL under a
+-- unique index (standard SQL semantics), matching this column's existing
+-- nullable definition - nothing here forces a transaction_reference to
+-- be present, and a future legitimate row with no reference yet is still
+-- insertable without conflict.
+--
+-- Used as the target of onConflict: "payment_provider,transaction_reference"
+-- in the accompanying upsert() changes to app/api/stripe/webhook/route.ts
+-- and app/api/paystack/webhook/route.ts - ON CONFLICT works against any
+-- unique index, not only a formally-declared UNIQUE constraint, so a
+-- plain CREATE UNIQUE INDEX is sufficient and matches this project's own
+-- IF NOT EXISTS convention for idempotent migrations.
+
+CREATE UNIQUE INDEX IF NOT EXISTS payment_history_provider_reference_unique
+  ON public.payment_history (payment_provider, transaction_reference);

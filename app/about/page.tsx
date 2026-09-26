@@ -30,20 +30,27 @@ const CORE_VALUES = [
 export default function AboutPage() {
   return (
     <main className="min-h-screen bg-white">
-      {/* Navigation - unchanged */}
-      <nav className="flex items-center justify-between px-6 sm:px-8 py-4 bg-white border-b border-gray-100">
-        <Link href="/" className="flex items-center gap-3 hover:opacity-90 transition-opacity">
-          <Logo variant="badge" size="compact" />
-          <span className="text-xl sm:text-2xl font-bold text-green-700">ScoutAfrica</span>
+      {/* Navigation - mobile-only sizing tier added below (Fix 2, mobile
+          audit): logo/wordmark/buttons all shrink specifically below
+          sm (640px), where "ScoutAfrica" and "Login" were measured
+          overlapping by 19-44px at the four required widths. Every
+          sm: value is untouched, so this nav is byte-identical to
+          before at sm+ (tablet/desktop) - same technique already used
+          on HomeHeader.tsx for the same class of bug, but applied here
+          independently since that file is out of scope for this fix. */}
+      <nav className="flex items-center justify-between px-4 sm:px-8 py-3 sm:py-4 bg-white border-b border-gray-100">
+        <Link href="/" className="flex items-center gap-1.5 sm:gap-3 hover:opacity-90 transition-opacity min-w-0">
+          <Logo variant="badge" size="compact" className="w-8 h-8 sm:w-11 sm:h-12 shrink-0" />
+          <span className="text-sm sm:text-2xl font-bold text-green-700 whitespace-nowrap">ScoutAfrica</span>
         </Link>
-        <div className="flex gap-3">
+        <div className="flex gap-1.5 sm:gap-3 shrink-0">
           <Link href="/signin">
-            <button className="px-5 py-2.5 border border-green-600 rounded-xl text-green-700 font-medium hover:bg-green-50 transition-colors">
+            <button className="px-2.5 py-1.5 text-xs sm:px-5 sm:py-2.5 sm:text-base border border-green-600 rounded-xl text-green-700 font-medium hover:bg-green-50 transition-colors whitespace-nowrap">
               Login
             </button>
           </Link>
           <Link href="/signup">
-            <button className="px-5 py-2.5 bg-green-700 hover:bg-green-800 text-white rounded-xl font-medium shadow-sm hover:shadow-md transition-all duration-200">
+            <button className="px-2.5 py-1.5 text-xs sm:px-5 sm:py-2.5 sm:text-base bg-green-700 hover:bg-green-800 text-white rounded-xl font-medium shadow-sm hover:shadow-md transition-all duration-200 whitespace-nowrap">
               Register
             </button>
           </Link>
@@ -51,10 +58,35 @@ export default function AboutPage() {
       </nav>
 
       <div className="max-w-7xl mx-auto px-6 py-10 sm:py-14">
+        {/* Mobile content order: pure CSS reordering via `order`, no
+            DOM/content change. A previous pass put the founder card
+            SECOND on mobile (main content first) to stop it from
+            hogging the whole first viewport - that instead surfaced a
+            different problem: the founder card's own loading skeleton
+            (a pale bg-gray-50 box, see FounderSection.tsx) landing at
+            the very bottom of a long page reads as "a large blank
+            card," especially over real-device network latency where
+            that loading state is visible for longer than on local dev.
+            Now order-1 (founder first) / order-2 (main content second)
+            on mobile - the loading flash still happens, but at the TOP
+            of the page where it resolves almost immediately as part of
+            initial load, not as a confusing dead zone discovered after
+            scrolling past everything else.
+            lg:order-1 / lg:order-2 are UNCHANGED from before on both
+            elements, so desktop's arrangement (founder card on the
+            left/first, main content on the right/second) is
+            byte-identical to before this edit. `lg:contents` on the
+            founder wrapper makes it disappear from the box model at
+            lg+, so FounderSection's own `lg:w-[300px] shrink-0` classes
+            apply directly as if it were still an unwrapped direct flex
+            child - required only because FounderSection.tsx takes no
+            props to attach the mobile-only order class to directly. */}
         <div className="flex flex-col lg:flex-row gap-8 lg:gap-10">
-          <FounderSection />
+          <div className="order-1 lg:order-1 lg:contents">
+            <FounderSection />
+          </div>
 
-          <div className="flex-1 min-w-0 space-y-16">
+          <div className="order-2 lg:order-2 flex-1 min-w-0 space-y-16">
             {/* Hero - copy unchanged, layout now includes the Africa
                 network illustration on the right, per the reference */}
             <section className="relative overflow-hidden bg-gradient-to-b from-green-50 to-white rounded-3xl px-6 sm:px-10 py-10 sm:py-14">

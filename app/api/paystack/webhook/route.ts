@@ -129,16 +129,36 @@ async function handleChargeSuccess(event: PaystackEvent) {
     return;
   }
 
-  await supabaseAdmin.from("payment_history").insert({
-    subscription_id: subscriptionRow.id,
-    payment_provider: "paystack",
-    payment_method: event.data.authorization?.channel || "paystack",
-    amount,
-    currency,
-    transaction_reference: event.data.reference,
-    payment_status: "success",
-    payment_date: now.toISOString(),
-  });
+  // Same shared unique index as the Stripe handlers
+  // (payment_history_provider_reference_unique, migration 044).
+  // Deliberately ignoreDuplicates: FALSE (a real upsert, not "do
+  // nothing") - unlike handlePaymentFailed below, success must always be
+  // allowed to overwrite an existing row for this reference. Paystack's
+  // subscription-invoice failure/retry reference semantics aren't fully
+  // documented publicly, so this can't be ruled out with certainty: if a
+  // 'failed' row for this exact reference was recorded earlier and the
+  // charge has now actually succeeded, this event must be able to
+  // upgrade that row to 'success' rather than being silently dropped by
+  // a DO NOTHING conflict resolution. A same-event retry redelivery is
+  // still handled safely - it just re-writes the same success data,
+  // which is harmless.
+  const { error: paymentHistoryError } = await supabaseAdmin.from("payment_history").upsert(
+    {
+      subscription_id: subscriptionRow.id,
+      payment_provider: "paystack",
+      payment_method: event.data.authorization?.channel || "paystack",
+      amount,
+      currency,
+      transaction_reference: event.data.reference,
+      payment_status: "success",
+      payment_date: now.toISOString(),
+    },
+    { onConflict: "payment_provider,transaction_reference", ignoreDuplicates: false }
+  );
+
+  if (paymentHistoryError) {
+    console.error("Failed to record payment_history on Paystack charge success:", paymentHistoryError);
+  }
 }
 
 async function handleSubscriptionDisabled(event: PaystackEvent) {
@@ -167,14 +187,29 @@ async function handlePaymentFailed(event: PaystackEvent) {
 
   if (!existing) return;
 
-  await supabaseAdmin.from("payment_history").insert({
-    subscription_id: existing.id,
-    payment_provider: "paystack",
-    payment_method: "paystack",
-    amount: (event.data.amount || 0) / 100,
-    currency: existing.currency || "NGN",
-    transaction_reference: event.data.reference,
-    payment_status: "failed",
-    payment_date: new Date().toISOString(),
-  });
+  // Same shared unique index as above. Deliberately ignoreDuplicates:
+  // TRUE (the opposite of handleChargeSuccess above) - this protects a
+  // genuine success record from ever being downgraded to 'failed' if
+  // this event arrives after, or out of order with, a success event for
+  // the same reference. It also makes a redelivered/retried copy of this
+  // exact failure event a safe no-op rather than a duplicate row.
+  // Failure is intentionally the "weaker" event here: it may record a
+  // new row, but it may never overwrite one that already exists.
+  const { error: paymentHistoryError } = await supabaseAdmin.from("payment_history").upsert(
+    {
+      subscription_id: existing.id,
+      payment_provider: "paystack",
+      payment_method: "paystack",
+      amount: (event.data.amount || 0) / 100,
+      currency: existing.currency || "NGN",
+      transaction_reference: event.data.reference,
+      payment_status: "failed",
+      payment_date: new Date().toISOString(),
+    },
+    { onConflict: "payment_provider,transaction_reference", ignoreDuplicates: true }
+  );
+
+  if (paymentHistoryError) {
+    console.error("Failed to record payment_history on Paystack payment failure:", paymentHistoryError);
+  }
 }
