@@ -1,4 +1,7 @@
+"use client";
+
 import { FiUserPlus, FiUploadCloud, FiTarget, FiChevronRight } from "react-icons/fi";
+import { useLanguage } from "../../lib/i18n";
 
 // Pure marketing copy, no data involved - safe to match the reference
 // text exactly. Layout matches the reference: heading + description in a
@@ -23,6 +26,8 @@ const STEPS = [
 ];
 
 export default function HowItWorks() {
+  const { t } = useLanguage();
+
   return (
     // py reduced (14 -> 10) and the heading/cards gap tightened (8 -> 6),
     // per follow-up feedback that this section sat too low with too much
@@ -34,7 +39,7 @@ export default function HowItWorks() {
       <div className="max-w-7xl mx-auto px-4 sm:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6 items-start">
           <div className="border-l-4 border-amber-500 pl-4">
-            <h2 className="text-2xl font-bold text-gray-900">How ScoutAfrica Works</h2>
+            <h2 className="text-2xl font-bold text-gray-900">{t("howScoutAfricaWorks")}</h2>
             <p className="text-gray-500 mt-1">
               A simple way for African football talent to connect with global opportunities.
             </p>

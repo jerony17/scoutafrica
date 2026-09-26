@@ -1,6 +1,9 @@
+"use client";
+
 import Link from "next/link";
 import { FaFacebookF, FaInstagram, FaXTwitter, FaYoutube, FaLinkedinIn } from "react-icons/fa6";
 import Logo from "../Logo";
+import { useLanguage } from "../../lib/i18n";
 
 // Social icons are rendered as plain (non-link) glyphs, not <a> tags -
 // this project has no real, confirmed social media URLs to point them at
@@ -10,6 +13,8 @@ import Logo from "../Logo";
 const SOCIAL_ICONS = [FaFacebookF, FaInstagram, FaXTwitter, FaYoutube, FaLinkedinIn];
 
 export default function HomeFooter() {
+  const { t } = useLanguage();
+
   return (
     <footer className="bg-green-950 text-green-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-8 py-10">
@@ -20,11 +25,11 @@ export default function HomeFooter() {
           </Link>
 
           <nav className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
-            <Link href="/" className="hover:text-white">Home</Link>
-            <Link href="/find-players" className="hover:text-white">Find Players</Link>
-            <Link href="/signup" className="hover:text-white">For Organizations</Link>
-            <Link href="/about" className="hover:text-white">About Us</Link>
-            <Link href="/membership" className="hover:text-white">Pricing</Link>
+            <Link href="/" className="hover:text-white">{t("home")}</Link>
+            <Link href="/find-players" className="hover:text-white">{t("findPlayers")}</Link>
+            <Link href="/signup" className="hover:text-white">{t("forOrganizations")}</Link>
+            <Link href="/about" className="hover:text-white">{t("aboutUs")}</Link>
+            <Link href="/membership" className="hover:text-white">{t("pricing")}</Link>
           </nav>
 
           <div className="flex gap-3">
@@ -42,9 +47,9 @@ export default function HomeFooter() {
 
         <div className="mt-8 pt-6 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-green-200">
           <div className="flex flex-wrap justify-center gap-x-5 gap-y-1">
-            <Link href="/privacy-policy" className="hover:text-white">Privacy Policy</Link>
-            <Link href="/terms-of-service" className="hover:text-white">Terms of Service</Link>
-            <Link href="/contact" className="hover:text-white">Contact</Link>
+            <Link href="/privacy-policy" className="hover:text-white">{t("privacyPolicy")}</Link>
+            <Link href="/terms-of-service" className="hover:text-white">{t("termsOfService")}</Link>
+            <Link href="/contact" className="hover:text-white">{t("contact")}</Link>
           </div>
           <p>&copy; {new Date().getFullYear()} ScoutAfrica</p>
         </div>

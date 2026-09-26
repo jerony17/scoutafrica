@@ -1,6 +1,9 @@
+"use client";
+
 import Link from "next/link";
 import Image from "next/image";
 import type { FeaturedPlayerSlot } from "../../lib/featuredPlayers";
+import { useLanguage } from "../../lib/i18n";
 
 // Fully data-driven: the 4 slots come from app/lib/featuredPlayers.ts
 // (currently clearly-marked fallback/demo data - see that file's header
@@ -12,15 +15,16 @@ import type { FeaturedPlayerSlot } from "../../lib/featuredPlayers";
 // /player-profile/<slug> URL that would 404. Once real players are wired
 // through, a non-null slug will route to their actual profile.
 export default function FeaturedPlayers({ players }: { players: FeaturedPlayerSlot[] }) {
+  const { t } = useLanguage();
   const visible = players.filter((slot) => slot.active);
 
   return (
     <section className="bg-gray-50 py-14">
       <div className="max-w-7xl mx-auto px-4 sm:px-8">
         <div className="flex items-center justify-between border-l-4 border-amber-500 pl-4 mb-8">
-          <h2 className="text-2xl font-bold text-gray-900">Featured Player Profiles</h2>
+          <h2 className="text-2xl font-bold text-gray-900">{t("featuredPlayerProfiles")}</h2>
           <Link href="/find-players" className="text-green-700 text-sm font-semibold hover:underline whitespace-nowrap">
-            View all players →
+            {t("viewAllPlayers")}
           </Link>
         </div>
 
@@ -89,7 +93,7 @@ export default function FeaturedPlayers({ players }: { players: FeaturedPlayerSl
                     {player.country}
                   </p>
                   <span className="mt-0.5 block w-full text-center bg-green-600 hover:bg-green-700 text-white text-[10px] font-semibold py-1 rounded-md">
-                    View Profile →
+                    {t("viewProfile")}
                   </span>
                 </div>
               </Link>
@@ -139,7 +143,7 @@ export default function FeaturedPlayers({ players }: { players: FeaturedPlayerSl
                     {player.country}
                   </p>
                   <span className="mt-1 block w-full text-center bg-green-600 hover:bg-green-700 text-white text-[10px] font-semibold py-1.5 rounded-md">
-                    View Profile →
+                    {t("viewProfile")}
                   </span>
                 </div>
               </Link>

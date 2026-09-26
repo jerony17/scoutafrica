@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { FiSearch, FiMenu, FiX } from "react-icons/fi";
 import Logo from "../Logo";
+import { useLanguage, type TranslationKey } from "../../lib/i18n";
 
 // New expanded nav for the redesigned homepage only - every other page in
 // this app keeps its own existing simple header, untouched. Every link
@@ -23,16 +24,22 @@ import Logo from "../Logo";
 // toggle - this file was a server component before, and nothing else
 // on the homepage needed that, so this is the one component this pass
 // converts.
-const NAV_LINKS = [
-  { href: "/", label: "Home" },
-  { href: "/find-players", label: "Find Players" },
-  { href: "/signup", label: "For Organizations" },
-  { href: "/about", label: "About Us" },
-  { href: "/membership", label: "Pricing" },
+// Translation keys, not literal labels - single source of truth for
+// both the desktop nav and the mobile hamburger nav below (previously
+// two separate hardcoded copies of the same 5 labels; unified so a
+// translated label only needs to be defined once, not kept in sync by
+// hand in two places). href list and order are unchanged from before.
+const NAV_LINKS: { href: string; key: TranslationKey }[] = [
+  { href: "/", key: "home" },
+  { href: "/find-players", key: "findPlayers" },
+  { href: "/signup", key: "forOrganizations" },
+  { href: "/about", key: "aboutUs" },
+  { href: "/membership", key: "pricing" },
 ];
 
 export default function HomeHeader() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { t } = useLanguage();
 
   return (
     <header className="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm">
@@ -52,11 +59,18 @@ export default function HomeHeader() {
         </Link>
 
         <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-gray-600">
-          <Link href="/" className="text-green-700 font-semibold">Home</Link>
-          <Link href="/find-players" className="hover:text-green-700">Find Players</Link>
-          <Link href="/signup" className="hover:text-green-700">For Organizations</Link>
-          <Link href="/about" className="hover:text-green-700">About Us</Link>
-          <Link href="/membership" className="hover:text-green-700">Pricing</Link>
+          {/* Same className per link as before the unification - "/"
+              keeps its distinct active-state styling, every other link
+              keeps its plain hover style. Only the text source changed. */}
+          {NAV_LINKS.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={link.href === "/" ? "text-green-700 font-semibold" : "hover:text-green-700"}
+            >
+              {t(link.key)}
+            </Link>
+          ))}
         </nav>
 
         <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
@@ -75,13 +89,13 @@ export default function HomeHeader() {
               sm+ is untouched. */}
           <Link href="/signin">
             <button className="px-2 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-base border border-green-600 rounded-lg text-green-700 whitespace-nowrap">
-              Login
+              {t("login")}
             </button>
           </Link>
 
           <Link href="/signup">
             <button className="px-2 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-base bg-green-600 hover:bg-green-700 text-white rounded-lg whitespace-nowrap">
-              Register
+              {t("register")}
             </button>
           </Link>
 
@@ -105,7 +119,7 @@ export default function HomeHeader() {
               onClick={() => setMobileMenuOpen(false)}
               className="py-2 hover:text-green-700"
             >
-              {link.label}
+              {t(link.key)}
             </Link>
           ))}
         </nav>

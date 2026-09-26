@@ -1,5 +1,8 @@
+"use client";
+
 import Link from "next/link";
 import { FiShield, FiGlobe, FiTrendingUp, FiInfo } from "react-icons/fi";
+import { useLanguage } from "../../lib/i18n";
 
 const REASONS = [
   {
@@ -20,11 +23,13 @@ const REASONS = [
 ];
 
 export default function WhyChooseUs() {
+  const { t } = useLanguage();
+
   return (
     <section className="bg-white py-14">
       <div className="max-w-7xl mx-auto px-4 sm:px-8">
         <div className="border-l-4 border-amber-500 pl-4 mb-8">
-          <h2 className="text-2xl font-bold text-gray-900">Why Choose ScoutAfrica?</h2>
+          <h2 className="text-2xl font-bold text-gray-900">{t("whyChooseScoutAfrica")}</h2>
           <p className="text-gray-500 mt-1">
             We are building the largest African football talent network, connecting players with real opportunities.
           </p>
@@ -68,7 +73,7 @@ export default function WhyChooseUs() {
             <span className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mb-2">
               <FiInfo className="w-4 h-4" />
             </span>
-            <p className="font-semibold text-gray-900 text-sm">About Us</p>
+            <p className="font-semibold text-gray-900 text-sm">{t("aboutUs")}</p>
             <p className="text-xs text-gray-500 mt-0.5">Learn more about our mission, vision and impact.</p>
           </Link>
         </div>

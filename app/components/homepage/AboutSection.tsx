@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useLanguage } from "../../lib/i18n";
 
 // Layout matches the reference: heading/description/Learn More in a left
 // column, a large image area on the right with the founder/CEO quote
@@ -14,6 +17,8 @@ import Link from "next/link";
 // populated row yet (confirmed empty), so this is illustrative copy, not
 // a sourced quote from a real person.
 export default function AboutSection() {
+  const { t } = useLanguage();
+
   return (
     // Hidden on mobile - the approved mobile reference replaces this
     // whole section with a compact "About Us" teaser card as the 4th
@@ -25,7 +30,7 @@ export default function AboutSection() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
           <div>
             <div className="border-l-4 border-amber-500 pl-4">
-              <h2 className="text-2xl font-bold text-gray-900">About ScoutAfrica</h2>
+              <h2 className="text-2xl font-bold text-gray-900">{t("aboutScoutAfrica")}</h2>
               <p className="text-gray-500 mt-2 leading-relaxed max-w-md">
                 ScoutAfrica is a platform dedicated to discovering, developing, and connecting African football
                 talent with global opportunities. We believe in the power of African talent.
@@ -36,7 +41,7 @@ export default function AboutSection() {
               href="/about"
               className="mt-5 inline-flex items-center gap-1.5 border border-green-600 text-green-700 font-semibold px-5 py-2.5 rounded-xl hover:bg-green-50 transition-colors"
             >
-              Learn More <span aria-hidden="true">→</span>
+              {t("learnMore")} <span aria-hidden="true">→</span>
             </Link>
           </div>
 
