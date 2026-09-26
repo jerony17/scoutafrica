@@ -80,7 +80,14 @@ export default function FindPlayersPage() {
 
   const buildQuery = useCallback(
     (from: number, to: number) => {
-      let query = supabase.from("player").select("*").range(from, to);
+      // Explicit column list (never "*") - public, unauthenticated page;
+      // exactly the fields the PlayerRow type above declares, so email
+      // (and everything else this page doesn't use) never reaches the
+      // browser's network response.
+      let query = supabase
+        .from("player")
+        .select("id, full_name, age, position, nationality, current_club, scoutafrica_id, photo_url, cover_photo_url, verified, slug")
+        .range(from, to);
 
       if (debouncedSearch) {
         query = query.or(

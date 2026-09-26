@@ -58,9 +58,17 @@ export default function PlayerProfile({
 
   useEffect(() => {
     async function loadPlayer() {
+      // Explicit column list (never "*") - this is a public, unauthenticated
+      // page, so the Supabase query runs in the browser and its raw JSON
+      // response is visible in devtools/network tab. Deliberately excludes
+      // email, date_of_birth, and created_at: none are rendered anywhere on
+      // this page (confirmed by auditing every component it uses), and
+      // email in particular must never reach the browser here.
       const { data, error } = await supabase
         .from("player")
-        .select("*")
+        .select(
+          "id, user_id, full_name, slug, photo_url, cover_photo_url, verified, availability_status, scoutafrica_id, nationality, position, current_club, age, height, weight, preferred_foot, bio, playing_style, strengths, secondary_position, languages_spoken, contract_expiry, matches, goals, assists, minutes_played, clean_sheets, yellow_cards, red_card"
+        )
         .eq("slug", slug)
         .single();
 
@@ -124,9 +132,10 @@ export default function PlayerProfile({
           orClauses.push(`and(age.gte.${data.age - 2},age.lte.${data.age + 2})`);
         }
 
+        // Explicit column list - only what SimilarPlayers.tsx renders.
         const { data: similar } = await supabase
           .from("player")
-          .select("*")
+          .select("id, slug, photo_url, full_name, position, nationality")
           .neq("id", data.id)
           .or(orClauses.join(","))
           .limit(3);
