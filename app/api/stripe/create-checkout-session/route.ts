@@ -10,6 +10,7 @@ import {
   type BillingCycle,
   type SupportedCurrency,
 } from "../../../lib/pricing";
+import { checkRateLimit } from "../../../lib/rateLimit";
 
 const VALID_CYCLES: BillingCycle[] = ["monthly", "annual"];
 const VALID_CURRENCIES: SupportedCurrency[] = ["JPY", "NGN", "USD", "GBP", "EUR"];
@@ -66,6 +67,17 @@ if (!user) {
     { status: 401 }
   );
 }
+
+    // Rate limit AFTER auth (needs the real authenticated user id as the
+    // identifier) and BEFORE calling the Stripe API - a rejected request
+    // must never reach Stripe.
+    const rateLimit = await checkRateLimit("stripe_checkout_session", user.id, 60, 5);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: "Too many requests. Please try again later." },
+        { status: 429, headers: { "Retry-After": String(rateLimit.retryAfterSeconds) } }
+      );
+    }
 
     const amount = getAmountForCycle(currency, cycle);
     const stripeAmount = toStripeAmount(amount, currency);

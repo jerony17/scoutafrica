@@ -8,6 +8,7 @@ import {
   type BillingCycle,
   type SupportedCurrency,
 } from "../../../lib/pricing";
+import { checkRateLimit } from "../../../lib/rateLimit";
 
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY!;
 
@@ -58,6 +59,17 @@ export async function POST(request: NextRequest) {
 
     if (!user || !user.email) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    }
+
+    // Rate limit AFTER auth (needs the real authenticated user id as the
+    // identifier) and BEFORE calling the Paystack API - a rejected
+    // request must never reach Paystack.
+    const rateLimit = await checkRateLimit("paystack_initialize", user.id, 60, 5);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: "Too many requests. Please try again later." },
+        { status: 429, headers: { "Retry-After": String(rateLimit.retryAfterSeconds) } }
+      );
     }
 
     const amount = getAmountForCycle(currency, cycle);

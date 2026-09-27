@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "../../../lib/supabaseAdmin";
+import { checkRateLimit, getClientIp } from "../../../lib/rateLimit";
 
 // Service-role client only, per explicit instruction not to duplicate
 // configuration - this is the same supabaseAdmin used by every other
@@ -14,6 +15,20 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB, matches the storage bucket's ow
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate limit BEFORE any other work - this route is the one fully
+    // unauthenticated write path in the app (see Security Release 5
+    // audit), so this check must run before formData parsing, the
+    // attachment upload, and the ticket insert, not after. IP-based
+    // since there's no session to key on.
+    const ip = getClientIp(request);
+    const rateLimit = await checkRateLimit("support_tickets", ip, 600, 5);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { success: false, error: "Too many requests. Please try again later." },
+        { status: 429, headers: { "Retry-After": String(rateLimit.retryAfterSeconds) } }
+      );
+    }
+
     const formData = await request.formData();
 
     const fullName = String(formData.get("fullName") || "").trim();
