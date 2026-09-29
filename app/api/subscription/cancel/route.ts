@@ -55,17 +55,48 @@ export async function POST(request: NextRequest) {
     }
 
     if (subscription.payment_provider === "stripe" && subscription.stripe_subscription_id) {
-      await stripe.subscriptions.update(subscription.stripe_subscription_id, {
-        cancel_at_period_end: true,
-      });
-      // The actual status flip to 'cancelled' happens via the
-      // customer.subscription.deleted webhook once the current period
-      // truly ends - this keeps the single source of truth in the
-      // webhook handler, not duplicated here.
-      await supabaseAdmin
-        .from("subscriptions")
-        .update({ status: "renewing", updated_at: new Date().toISOString() })
-        .eq("id", subscription.id);
+      try {
+        await stripe.subscriptions.update(subscription.stripe_subscription_id, {
+          cancel_at_period_end: true,
+        });
+        // The actual status flip to 'cancelled' happens via the
+        // customer.subscription.deleted webhook once the current period
+        // truly ends - this keeps the single source of truth in the
+        // webhook handler, not duplicated here.
+        await supabaseAdmin
+          .from("subscriptions")
+          .update({ status: "renewing", updated_at: new Date().toISOString() })
+          .eq("id", subscription.id);
+      } catch (stripeError) {
+        // Stripe's documented error code for "this subscription id does
+        // not exist on Stripe's side" (e.g. test-mode data cleared, or
+        // the object was deleted directly in the Stripe dashboard after
+        // this row was written). No customer.subscription.deleted
+        // webhook will ever arrive for an object that doesn't exist, so
+        // the normal "renewing, wait for the webhook" path above would
+        // leave this subscription stuck forever. Treat it as already
+        // gone and cancel locally now, using the same immediate-cancel
+        // fields the Paystack branch below already uses - not a new
+        // status value. Any other Stripe error still propagates to the
+        // route's existing catch block unchanged.
+        if (
+          stripeError &&
+          typeof stripeError === "object" &&
+          "code" in stripeError &&
+          stripeError.code === "resource_missing"
+        ) {
+          await supabaseAdmin
+            .from("subscriptions")
+            .update({
+              status: "cancelled",
+              cancelled_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", subscription.id);
+        } else {
+          throw stripeError;
+        }
+      }
     } else if (subscription.payment_provider === "paystack" && subscription.paystack_subscription_code) {
       const detailResponse = await fetch(
         `https://api.paystack.co/subscription/${subscription.paystack_subscription_code}`,
