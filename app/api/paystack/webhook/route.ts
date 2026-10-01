@@ -79,6 +79,20 @@ export async function POST(request: NextRequest) {
 }
 
 async function handleChargeSuccess(event: PaystackEvent) {
+  // TEMPORARY DIAGNOSTIC - remove this console.log block once the real
+  // charge.success customer-code field path is confirmed (see the
+  // unverified-assumption comment further down this function). Logs only
+  // booleans - no payload contents, no field names, no values, no PII,
+  // no secrets.
+  const rawFlatCustomerCode = (event.data as { customer_code?: unknown }).customer_code;
+  const customerObj = event.data.customer as { email?: string; customer_code?: unknown } | undefined;
+  console.log("DIAGNOSTIC charge.success customer-code shape:", {
+    hasCustomerObject: typeof event.data.customer === "object" && event.data.customer !== null,
+    hasNestedCustomerCode:
+      typeof customerObj?.customer_code === "string" && customerObj.customer_code.length > 0,
+    hasFlatCustomerCode: typeof rawFlatCustomerCode === "string" && rawFlatCustomerCode.length > 0,
+  });
+
   const metadata = event.data.metadata;
   const userId = metadata?.user_id;
   const billingCycle = metadata?.billing_cycle;
