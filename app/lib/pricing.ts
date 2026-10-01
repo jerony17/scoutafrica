@@ -21,18 +21,18 @@ export interface PricePoint {
 
 // Base plan, in Japanese Yen - ScoutAfrica's home-market pricing.
 export const BASE_CURRENCY: SupportedCurrency = "JPY";
-export const BASE_PRICE_MONTHLY = 3000;
-export const BASE_PRICE_ANNUAL = 25000;
+export const BASE_PRICE_MONTHLY = 2500;
+export const BASE_PRICE_ANNUAL = 27000;
 
 // Fixed price points per currency. These are illustrative, reasonable
 // approximations - YOU must review and adjust these to real, current
 // figures before launch. Do not rely on them being FX-accurate.
 export const PRICE_POINTS: Record<SupportedCurrency, PricePoint> = {
-  JPY: { currency: "JPY", monthly: 3000, annual: 25000 },
-  USD: { currency: "USD", monthly: 20, annual: 170 },
-  GBP: { currency: "GBP", monthly: 16, annual: 135 },
-  EUR: { currency: "EUR", monthly: 18, annual: 155 },
-  NGN: { currency: "NGN", monthly: 4500, annual: 38000 },
+  JPY: { currency: "JPY", monthly: 2500, annual: 27000 },
+  USD: { currency: "USD", monthly: 16, annual: 170 },
+  GBP: { currency: "GBP", monthly: 13, annual: 135 },
+  EUR: { currency: "EUR", monthly: 15, annual: 155 },
+  NGN: { currency: "NGN", monthly: 25000, annual: 270000 },
 };
 
 export function getPricePoint(currency: SupportedCurrency): PricePoint {

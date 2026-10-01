@@ -14,8 +14,8 @@ const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY!;
 
 // Paystack settles in a limited set of currencies (NGN, GHS, ZAR, KES,
 // USD as of this writing) - verify your Paystack account's enabled
-// currencies before launch. Non-NGN attempts fall back to USD here
-// rather than silently failing.
+// currencies before launch. Unsupported currencies are rejected with a
+// 400 below rather than silently substituted with USD.
 const PAYSTACK_SUPPORTED: SupportedCurrency[] = ["NGN", "USD"];
 
 const VALID_CYCLES: BillingCycle[] = ["monthly", "annual"];
@@ -29,14 +29,17 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const cycle = body.cycle as BillingCycle;
-    let currency = (body.currency as SupportedCurrency) || BASE_CURRENCY;
+    const currency = (body.currency as SupportedCurrency) || BASE_CURRENCY;
 
     if (!VALID_CYCLES.includes(cycle)) {
       return NextResponse.json({ error: "Invalid billing cycle" }, { status: 400 });
     }
 
     if (!PAYSTACK_SUPPORTED.includes(currency)) {
-      currency = "USD";
+      return NextResponse.json(
+        { error: "Paystack only supports NGN and USD for this payment flow. Please choose a different payment method or currency." },
+        { status: 400 }
+      );
     }
 
     const cookieStore = await cookies();

@@ -31,6 +31,11 @@ const PAYMENT_METHODS: { id: string; label: string; provider: "stripe" | "paysta
   { id: "paystack", label: "🟢 Paystack", provider: "paystack" },
 ];
 
+// Keep in sync with PAYSTACK_SUPPORTED in app/api/paystack/initialize/route.ts -
+// the backend route rejects any other currency with a 400, so the UI must
+// never offer Paystack as a choice outside this set.
+const PAYSTACK_SUPPORTED_CURRENCIES: SupportedCurrency[] = ["NGN", "USD"];
+
 function formatPrice(amount: number, currency: SupportedCurrency) {
   try {
     return new Intl.NumberFormat(undefined, { style: "currency", currency }).format(amount);
@@ -85,7 +90,7 @@ export default function UpgradePage() {
         throw new Error(data.error || "Failed to start checkout");
       }
 
-      window.location.href = data.url;
+      window.location.assign(data.url);
     } catch (error) {
       setProcessing(null);
       alert(error instanceof Error ? error.message : "Something went wrong. Please try again.");
@@ -101,6 +106,9 @@ export default function UpgradePage() {
   }
 
   const price = PRICE_POINTS[currency];
+  const availablePaymentMethods = PAYMENT_METHODS.filter(
+    (method) => method.provider !== "paystack" || PAYSTACK_SUPPORTED_CURRENCIES.includes(currency)
+  );
 
   return (
     <main className="min-h-screen bg-gray-50 p-4 sm:p-8">
@@ -175,7 +183,7 @@ export default function UpgradePage() {
           </p>
 
           <div className="space-y-2">
-            {PAYMENT_METHODS.map((method) => (
+            {availablePaymentMethods.map((method) => (
               <button
                 key={method.id}
                 onClick={() => handlePaymentMethodSelect(method.id, method.provider)}
