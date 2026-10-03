@@ -11,7 +11,13 @@ interface PaystackEvent {
     reference?: string;
     amount?: number;
     currency?: string;
-    customer?: { email?: string };
+    status?: string;
+    // customer.customer_code: confirmed via a real Paystack Test Mode
+    // charge.success event (inspected through temporary diagnostic
+    // logging, since removed) that charge.success nests customer_code
+    // the same way subscription.create's documented payload does
+    // (data.customer.customer_code). No longer an assumption.
+    customer?: { email?: string; customer_code?: string };
     authorization?: { authorization_code?: string; channel?: string; card_type?: string };
     metadata?: {
       user_id?: string;
@@ -20,7 +26,7 @@ interface PaystackEvent {
       amount?: number;
     };
     subscription_code?: string;
-    customer_code?: string;
+    next_payment_date?: string;
     plan?: { plan_code?: string; interval?: string };
   };
 }
@@ -59,6 +65,9 @@ export async function POST(request: NextRequest) {
       case "charge.success":
         await handleChargeSuccess(event);
         break;
+      case "subscription.create":
+        await handleSubscriptionCreate(event);
+        break;
       case "subscription.disable":
       case "subscription.not_renew":
         await handleSubscriptionDisabled(event);
@@ -79,20 +88,6 @@ export async function POST(request: NextRequest) {
 }
 
 async function handleChargeSuccess(event: PaystackEvent) {
-  // TEMPORARY DIAGNOSTIC - remove this console.log block once the real
-  // charge.success customer-code field path is confirmed (see the
-  // unverified-assumption comment further down this function). Logs only
-  // booleans - no payload contents, no field names, no values, no PII,
-  // no secrets.
-  const rawFlatCustomerCode = (event.data as { customer_code?: unknown }).customer_code;
-  const customerObj = event.data.customer as { email?: string; customer_code?: unknown } | undefined;
-  console.log("DIAGNOSTIC charge.success customer-code shape:", {
-    hasCustomerObject: typeof event.data.customer === "object" && event.data.customer !== null,
-    hasNestedCustomerCode:
-      typeof customerObj?.customer_code === "string" && customerObj.customer_code.length > 0,
-    hasFlatCustomerCode: typeof rawFlatCustomerCode === "string" && rawFlatCustomerCode.length > 0,
-  });
-
   const metadata = event.data.metadata;
   const userId = metadata?.user_id;
   const billingCycle = metadata?.billing_cycle;
@@ -113,6 +108,10 @@ async function handleChargeSuccess(event: PaystackEvent) {
     expiresAt.setFullYear(expiresAt.getFullYear() + 1);
   }
 
+  // event.data.customer?.customer_code: confirmed via a real Paystack
+  // Test Mode charge.success event (see the PaystackEvent interface
+  // comment above) that this nested shape is correct - no longer an
+  // unverified assumption.
   const { data: subscriptionRow, error } = await supabaseAdmin
     .from("subscriptions")
     .upsert(
@@ -125,13 +124,20 @@ async function handleChargeSuccess(event: PaystackEvent) {
         payment_provider: "paystack",
         payment_method: event.data.authorization?.channel || "paystack",
         transaction_id: event.data.reference || null,
-        paystack_customer_code: event.data.customer_code || null,
+        paystack_customer_code: event.data.customer?.customer_code || null,
         paystack_subscription_code: event.data.subscription_code || null,
         status: "premium",
         started_at: now.toISOString(),
         expires_at: expiresAt.toISOString(),
         cancelled_at: null,
         updated_at: now.toISOString(),
+        // Switching provider to Paystack - clear fields that only ever
+        // applied to a prior Stripe subscription on this same row, so a
+        // provider-switched account doesn't keep a stale Stripe identity
+        // sitting alongside its current Paystack one.
+        stripe_subscription_id: null,
+        stripe_customer_id: null,
+        price_id: null,
       },
       { onConflict: "user_id" }
     )
@@ -139,8 +145,10 @@ async function handleChargeSuccess(event: PaystackEvent) {
     .single();
 
   if (error) {
+    // Must not acknowledge success - propagate so the outer handler
+    // returns a non-2xx instead of a false 200.
     console.error("Failed to upsert subscription on Paystack charge success:", error);
-    return;
+    throw error;
   }
 
   // Same shared unique index as the Stripe handlers
@@ -171,7 +179,106 @@ async function handleChargeSuccess(event: PaystackEvent) {
   );
 
   if (paymentHistoryError) {
+    // Also must not acknowledge success - a payment that genuinely
+    // succeeded at Paystack but was never recorded in payment_history is
+    // exactly the kind of database-operation failure that must not be
+    // silently acked. A redelivery safely re-runs the (idempotent) main
+    // upsert above and gets another chance at this insert.
     console.error("Failed to record payment_history on Paystack charge success:", paymentHistoryError);
+    throw paymentHistoryError;
+  }
+
+  // Opportunistic reconciliation of any subscription.create event(s)
+  // already staged for this customer (see 048_paystack_pending_events.sql
+  // - reconcile_paystack_pending_events runs the match/apply/cleanup as
+  // one Postgres transaction, not separate DELETE+UPDATE calls). Soft-
+  // fails on purpose: the core job of this charge.success event (payment
+  // recorded, subscription active) already succeeded above regardless of
+  // whether reconciliation succeeds, and handleSubscriptionCreate below
+  // also attempts this same reconciliation after staging - between the
+  // two, at least one attempt is guaranteed to run after both this row's
+  // customer_code and the staged event exist (see the PR/report for the
+  // interleaving proof), so a failure here isn't the only chance.
+  const customerCode = event.data.customer?.customer_code;
+  if (customerCode) {
+    const { error: reconcileError } = await supabaseAdmin.rpc("reconcile_paystack_pending_events", {
+      p_customer_code: customerCode,
+    });
+    if (reconcileError) {
+      console.error("Failed to reconcile staged Paystack subscription.create event:", reconcileError);
+    }
+  }
+}
+
+// subscription.create fields used here are the ones confirmed from
+// Paystack's documentation: data.subscription_code, data.customer.customer_code,
+// data.status, data.amount, data.next_payment_date, data.plan.interval,
+// data.plan.plan_code. Only subscription_code and next_payment_date are
+// actually WRITTEN to subscriptions (inside reconcile_paystack_pending_events)
+// - status/amount/plan.interval are available in the staged payload but
+// deliberately not persisted: this app's own status/billing_cycle values
+// are a closed set used throughout premium-access logic elsewhere, and
+// charge.success (driven by our own trusted metadata) already sets them
+// correctly. Writing an unverified Paystack string directly into those
+// columns risks a mismatch with no corresponding confirmed mapping -
+// worse than leaving them as charge.success already set them.
+//
+// STAGE FIRST, ALWAYS: this event is durably staged unconditionally
+// before anything else is attempted - there is no "check for a match,
+// then decide whether to stage" step that could leave a window where the
+// event is neither applied nor staged. Reconciliation is then attempted
+// opportunistically via the same function charge.success also calls (see
+// migration 048) - between the two call sites, event ordering can't
+// cause a staged event to be permanently missed (see the comment in
+// handleChargeSuccess above).
+async function handleSubscriptionCreate(event: PaystackEvent) {
+  const subscriptionCode = event.data.subscription_code;
+  const customerCode = event.data.customer?.customer_code;
+
+  // TEMPORARY DIAGNOSTIC - remove this console.log block once the real
+  // subscription.create next_payment_date format is confirmed. Logs only
+  // booleans and the JS typeof string - no raw value, no payload
+  // contents, no customer/payment data, no secrets.
+  const rawNextPaymentDate = event.data.next_payment_date;
+  console.log("DIAGNOSTIC subscription.create next_payment_date shape:", {
+    isPresent: rawNextPaymentDate !== undefined && rawNextPaymentDate !== null,
+    typeofValue: typeof rawNextPaymentDate,
+    isValidDate:
+      rawNextPaymentDate !== undefined &&
+      rawNextPaymentDate !== null &&
+      !isNaN(new Date(rawNextPaymentDate).getTime()),
+  });
+
+  if (!subscriptionCode || !customerCode) {
+    console.error("Paystack subscription.create missing subscription_code or customer.customer_code");
+    return;
+  }
+
+  const { error: stageError } = await supabaseAdmin.from("paystack_pending_events").upsert(
+    {
+      subscription_code: subscriptionCode,
+      customer_code: customerCode,
+      event_type: event.event,
+      payload: event.data,
+    },
+    { onConflict: "subscription_code", ignoreDuplicates: true }
+  );
+
+  if (stageError) {
+    // Not durably staged - must not acknowledge this event.
+    throw stageError;
+  }
+
+  // Soft-fails: the event is already durably staged regardless of
+  // whether this immediate attempt succeeds, so a failure here must not
+  // throw - handleChargeSuccess's own reconciliation call remains the
+  // guaranteed fallback.
+  const { error: reconcileError } = await supabaseAdmin.rpc("reconcile_paystack_pending_events", {
+    p_customer_code: customerCode,
+  });
+
+  if (reconcileError) {
+    console.error("Failed to reconcile Paystack subscription.create event after staging:", reconcileError);
   }
 }
 
