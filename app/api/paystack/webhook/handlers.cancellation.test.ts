@@ -29,6 +29,22 @@ test("subscription.not_renew: calls the RPC with p_event_type='subscription.not_
   assert.equal(args.p_event_type, "subscription.not_renew");
 });
 
+// Event-ordering regression (migration 20261012120000): a late not_renew
+// on an already-cancelled row is a benign DB no-op that returns the
+// current status. The handler must acknowledge it (no throw -> 200), not
+// fail it into a 500 that Paystack would keep retrying.
+test("subscription.not_renew after cancellation: RPC no-op returning 'cancelled' -> resolves, no throw", async () => {
+  const event = { event: "subscription.not_renew", data: { subscription_code: "SUB_LATE" } };
+  const calls: FakeCall[] = [];
+  const admin = makeFakeAdmin(() => ({ data: [{ updated_id: 4, new_status: "cancelled" }], error: null }), calls);
+
+  await handleSubscriptionStatusChange(event, admin);
+
+  const args = calls.find((c) => c.table === "apply_paystack_subscription_status")!.payload as Record<string, unknown>;
+  assert.equal(args.p_subscription_code, "SUB_LATE");
+  assert.equal(args.p_event_type, "subscription.not_renew");
+});
+
 test("missing subscription_code -> still calls the RPC with null, lets the DB function raise", async () => {
   const event = { event: "subscription.disable", data: {} };
   const calls: FakeCall[] = [];
