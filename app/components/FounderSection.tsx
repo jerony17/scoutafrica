@@ -21,12 +21,29 @@ import type { ComponentType } from "react";
 //
 // Three fields shown in the reference have no corresponding column yet
 // (per explicit instruction: no migration, use fallbacks, decide later):
-// the quote text, the "Read My Story" link target, and "Former
-// Professional Footballer" as a bio fact.
+// the quote text, the "Read My Story" link target, and "Professional
+// Footballer & Founder" as a bio fact.
 const FALLBACK_QUOTE =
   "Building the bridge between African football talent and the opportunities that talent deserves.";
 const FALLBACK_STORY_HREF = "#our-story";
-const FALLBACK_BIO_FACTS = ["Former Professional Footballer"];
+const FALLBACK_BIO_FACTS = ["Professional Footballer & Founder"];
+
+// Shown until (and unless) a founder_profile row loads. The table is
+// missing from the local dev Supabase project (PostgREST PGRST205) and had
+// no row in production when last checked; either way the query failed and
+// the card used to render a blank loading box and then nothing at all -
+// leaving the About page with no CEO details. Only facts already
+// established elsewhere in the project are used here (name and title from
+// the admin dashboard header, company name); country/base stay null so
+// nothing is guessed. A real row, once it exists, replaces these values.
+type FounderCardProfile = Pick<FounderProfile, "full_name" | "position" | "company" | "country" | "current_base">;
+const FALLBACK_PROFILE: FounderCardProfile = {
+  full_name: "Jerome Abah",
+  position: "Founder & CEO",
+  company: "ScoutAfrica",
+  country: null,
+  current_base: null,
+};
 
 function NigeriaFlag({ className }: { className?: string }) {
   return (
@@ -59,39 +76,22 @@ function FlagIcon({ country, className }: { country: string; className?: string 
 }
 
 export default function FounderSection() {
-  const [profile, setProfile] = useState<FounderProfile | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(false);
+  const [profile, setProfile] = useState<FounderCardProfile>(FALLBACK_PROFILE);
 
   useEffect(() => {
     async function loadProfile() {
       const { data, error } = await supabase.from("founder_profile").select("*").eq("id", 1).single();
 
       if (error || !isFounderProfile(data)) {
-        console.error("Failed to load founder profile:", error);
-        setLoadError(true);
-        setLoading(false);
+        console.warn("Founder profile unavailable, showing fallback details:", error?.message ?? error);
         return;
       }
 
       setProfile(data);
-      setLoading(false);
     }
 
     loadProfile();
   }, []);
-
-  if (loading) {
-    return (
-      <div className="lg:w-[300px] shrink-0 bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-        <div className="h-64 bg-gray-50 rounded-xl animate-pulse" />
-      </div>
-    );
-  }
-
-  if (loadError || !profile) {
-    return null;
-  }
 
   const bioFacts = [
     ...FALLBACK_BIO_FACTS,
@@ -114,7 +114,7 @@ export default function FounderSection() {
               <div className="relative w-[220px] h-[220px]">
   <Image
     src="/branding/founder-jerome-abah-final.png"
-    alt="Jerome Abah"
+    alt={profile.full_name}
     fill
     priority
     className="object-contain"

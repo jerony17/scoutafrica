@@ -33,6 +33,79 @@ const HERO_PLAYER_IMAGE_MOBILE = "/branding/hero-player-mobile.png";
 // locally so the hero doesn't depend on an external source staying up.
 const STADIUM_BACKGROUND = "/branding/stadium-background.png";
 
+// MIRAI SPONSOR BADGE: the supplied transparent badge, copied in
+// unmodified (677x675, alpha 0 outside the circle). Rendered with h-auto
+// against its real intrinsic size so it keeps its aspect ratio at every
+// width - never cropped, recolored, or boxed.
+const MIRAI_BADGE = "/branding/mirai_badge_only_transparent.png";
+
+// "POWERED BY" sponsor block. Same gold (amber-400) and short fixed-width
+// accent lines already used by the mobile hero's gold label, so it reads
+// as part of the existing hero rather than a bolted-on banner. `compact`
+// is the mobile arrangement: same A-B-C-D order (label, badge, name,
+// tagline), but badge beside the text so it adds one short row to the
+// mobile hero instead of a tall centered stack.
+function MiraiSponsor({ compact = false }: { compact?: boolean }) {
+  const label = (
+    <div className="flex items-center justify-center gap-1.5">
+      <span className="w-4 h-px bg-amber-400 shrink-0" aria-hidden="true" />
+      <p className={`${compact ? "text-[9px]" : "text-[10px] min-[1280px]:text-[13px]"} font-bold tracking-wide uppercase text-amber-400 whitespace-nowrap`}>
+        Powered By
+      </p>
+      <span className="w-4 h-px bg-amber-400 shrink-0" aria-hidden="true" />
+    </div>
+  );
+
+  const name = (
+    <p className={`${compact ? "text-[10px]" : "text-[10px] min-[1280px]:text-sm"} font-bold uppercase text-white leading-tight whitespace-nowrap`}>
+      Mirai Sports
+      <br />
+      Entertainment Co. Ltd
+    </p>
+  );
+
+  const tagline = (
+    <p className={`${compact ? "text-[8px]" : "text-[9px] min-[1280px]:text-xs"} mt-0.5 text-amber-400 leading-snug whitespace-nowrap`}>
+      Developing African Talent
+      <br />
+      for a Global Stage.
+    </p>
+  );
+
+  if (compact) {
+    return (
+      <div className="flex flex-col items-center gap-1">
+        {label}
+        <div className="flex items-center gap-2">
+          <Image src={MIRAI_BADGE} alt="Mirai Sports Entertainment Co. Ltd" width={677} height={675} sizes="44px" className="w-11 h-auto shrink-0" />
+          <div className="text-left">
+            {name}
+            {tagline}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col items-center text-center">
+      {label}
+      <Image
+        src={MIRAI_BADGE}
+        alt="Mirai Sports Entertainment Co. Ltd"
+        width={677}
+        height={675}
+        sizes="(min-width: 1280px) 104px, 70px"
+        className="mt-1.5 w-[70px] min-[1280px]:w-[104px] h-auto"
+      />
+      <div className="mt-1.5">
+        {name}
+        {tagline}
+      </div>
+    </div>
+  );
+}
+
 // Player stat card - fully data-driven (see app/lib/featuredPlayers.ts).
 // Widened and shortened per follow-up feedback: wider (240px -> 280px)
 // so the video preview can use a shorter aspect ratio instead of 16:9,
@@ -212,27 +285,33 @@ export default function HeroSection({ spotlightPlayer }: { spotlightPlayer: Hero
             </div>
           </div>
 
+          {/* Mirai sponsor - its own column between the player and the
+              spotlight card, sized to its content (shrink-0, no fixed
+              width). self-start + mt-4/mt-2 lines "POWERED BY" up with
+              the gold "African Talent" label (within ~0-5px at
+              1024-1920) instead of row-centering it lower down. The
+              right margin (from 1180px) opens space before the card;
+              because the player column is flex-1, it also shifts the
+              footballer left by half that amount, which is what
+              balances headline / footballer / sponsor / card gaps
+              (43/57/44px at 1280). Its height is well under the row's,
+              so the hero stays 292px. */}
+          <div className="hidden lg:block relative z-10 shrink-0 self-start mt-4 min-[1280px]:mt-2 min-[1180px]:mr-6 min-[1280px]:mr-8">
+            <MiraiSponsor />
+          </div>
+
           {/* Spotlight card - right column, fixed width. Narrowed
               260px (from 280px) to free a bit more room for the larger
               player next to it - all required fields, proportions, and
               styling untouched, only the outer width number changed.
-              Nudged left (20px) to sit closer to the hero's center per
-              this round's request - a real bug surfaced trying this
-              with a negative margin first: the player column is
-              flex-1 (grow-to-fill), so any space a negative margin
-              freed up was immediately reclaimed by that sibling,
-              leaving the card's rendered position completely
-              unchanged (confirmed via measurement - x stayed at
-              732/988/1100 at 1024/1280/1440, identical to before).
-              A transform sidesteps that: it repositions after layout
-              is already computed, so it doesn't feed into the flex
-              space distribution at all. Checked against the player's
-              real visible (object-contain-scaled) picture edge, not
-              just its bounding box, at the tightest breakpoint
-              (1024px): ~38.6px of real clearance there before this
-              shift, leaving ~18.6px after it, so the two still can't
-              touch. */}
-          <div className="hidden lg:block relative z-10 w-[260px] shrink-0 lg:-translate-x-5">
+              Shifted right 36px vs. before (the old -translate-x-5
+              nudge removed, plus -mr-4 into the section's own px-8
+              gutter) to make room for the sponsor column. The -mr-4
+              also widens the flex-1 player column by 16px, which is
+              what keeps the footballer clear of the headline and the
+              ball clear of the sponsor text at the tightest
+              breakpoint (1024px). */}
+          <div className="hidden lg:block relative z-10 w-[260px] shrink-0 lg:-mr-6">
             <HeroSpotlightCard player={spotlightPlayer} />
           </div>
         </div>
@@ -328,6 +407,13 @@ export default function HeroSection({ spotlightPlayer }: { spotlightPlayer: Hero
               <Image src={HERO_PLAYER_IMAGE_MOBILE} alt="" fill className="object-contain object-top" priority />
             </div>
           </div>
+        </div>
+
+        {/* Mobile sponsor - no room beside the player at these widths, so
+            it sits as one compact centered row under the hero content.
+            relative z-10 keeps it above the player image's overflow. */}
+        <div className="lg:hidden relative z-10 mt-3">
+          <MiraiSponsor compact />
         </div>
       </div>
     </section>
