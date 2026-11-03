@@ -6,11 +6,14 @@ import {
   BASE_CURRENCY,
   PLAN_LABELS,
   getAmountForCycle,
+  getEffectiveSubscriptionStatus,
   toStripeAmount,
   type BillingCycle,
+  type SubscriptionStatus,
   type SupportedCurrency,
 } from "../../../lib/pricing";
 import { checkRateLimit } from "../../../lib/rateLimit";
+import { supabaseAdmin } from "../../../lib/supabaseAdmin";
 
 const VALID_CYCLES: BillingCycle[] = ["monthly", "annual"];
 const VALID_CURRENCIES: SupportedCurrency[] = ["JPY", "NGN", "USD", "GBP", "EUR"];
@@ -77,6 +80,37 @@ if (!user) {
         { error: "Too many requests. Please try again later." },
         { status: 429, headers: { "Retry-After": String(rateLimit.retryAfterSeconds) } }
       );
+    }
+
+    // Don't open a card subscription on top of a live PayPal one: PayPal
+    // keeps billing on its own, so the customer would pay twice, and this
+    // checkout's webhook would overwrite the PayPal record. Applies ONLY
+    // when the user's row is PayPal - Stripe/Paystack customers and users
+    // with no row reach Stripe exactly as before. If the lookup fails, no
+    // NEW checkout is started (temporary 503, the customer can retry) -
+    // this route only creates checkouts, so renewals and webhook
+    // processing of existing Stripe subscriptions are not affected.
+    const { data: existing, error: existingError } = await supabaseAdmin
+      .from("subscriptions")
+      .select("status, expires_at, payment_provider")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (existingError) {
+      console.error("Stripe checkout: could not check for an existing PayPal subscription:", existingError);
+      return NextResponse.json(
+        { error: "Checkout is temporarily unavailable. Please try again in a moment." },
+        { status: 503 }
+      );
+    }
+    if (existing?.payment_provider === "paypal") {
+      const effective = getEffectiveSubscriptionStatus(existing.status as SubscriptionStatus, existing.expires_at);
+      if (effective === "premium" || effective === "renewing") {
+        return NextResponse.json(
+          { error: "You already have an active Premium membership through PayPal." },
+          { status: 409 }
+        );
+      }
     }
 
     const amount = getAmountForCycle(currency, cycle);

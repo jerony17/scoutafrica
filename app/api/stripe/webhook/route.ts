@@ -5,6 +5,15 @@ import { supabaseAdmin } from "../../../lib/supabaseAdmin";
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
+// The status/expiry updates below find the row by stripe_customer_id. A
+// former Stripe customer who later subscribed through PayPal keeps that id
+// on their row, so a late Stripe event (e.g. the old subscription finally
+// being deleted after failed retries) would otherwise overwrite their live
+// PayPal membership. This filter skips ONLY rows whose provider is
+// 'paypal'; every Stripe, Paystack and NULL-provider row matches exactly
+// as before.
+const NOT_A_PAYPAL_ROW = "payment_provider.is.null,payment_provider.neq.paypal";
+
 // SECURITY: this route trusts NOTHING from the request body until the
 // signature below is verified against the raw bytes. Everything after
 // that point is guaranteed to have actually come from Stripe.
@@ -244,7 +253,8 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
       expires_at: currentPeriodEnd.toISOString(),
       updated_at: new Date().toISOString(),
     })
-    .eq("stripe_customer_id", customerId);
+    .eq("stripe_customer_id", customerId)
+    .or(NOT_A_PAYPAL_ROW);
 
   if (error) {
     console.error("Failed to update subscription on customer.subscription.updated:", error);
@@ -268,7 +278,8 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
       cancelled_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })
-    .eq("stripe_customer_id", customerId);
+    .eq("stripe_customer_id", customerId)
+    .or(NOT_A_PAYPAL_ROW);
 
   if (error) {
     console.error("Failed to update subscription on customer.subscription.deleted:", error);
@@ -307,9 +318,19 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
 
   const { data: existing } = await supabaseAdmin
     .from("subscriptions")
-    .select("id, currency")
+    .select("id, currency, payment_provider")
     .eq("stripe_customer_id", customerId)
     .maybeSingle();
+
+  if (existing?.payment_provider === "paypal") {
+    // Stripe took a payment from someone whose membership is now PayPal -
+    // don't touch their PayPal record; flag it for a manual refund.
+    console.error(
+      `Stripe invoice ${invoice.id} (customer ${customerId}) paid, but this user's subscription is now PayPal - ` +
+        "NOT applied. Cancel the old Stripe subscription and refund this invoice manually."
+    );
+    return;
+  }
 
   const { error } = await supabaseAdmin
     .from("subscriptions")
@@ -320,7 +341,8 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
       ...(currentPeriodEnd ? { expires_at: currentPeriodEnd } : {}),
       updated_at: new Date().toISOString(),
     })
-    .eq("stripe_customer_id", customerId);
+    .eq("stripe_customer_id", customerId)
+    .or(NOT_A_PAYPAL_ROW);
 
   if (error) {
     console.error("Failed to update subscription on invoice.payment_succeeded:", error);
@@ -370,7 +392,8 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
       status: "past_due",
       updated_at: new Date().toISOString(),
     })
-    .eq("stripe_customer_id", customerId);
+    .eq("stripe_customer_id", customerId)
+    .or(NOT_A_PAYPAL_ROW);
 
   if (error) {
     console.error("Failed to update subscription on invoice.payment_failed:", error);

@@ -18,18 +18,44 @@ const CURRENCY_OPTIONS: { value: SupportedCurrency; label: string }[] = [
   { value: "EUR", label: "🇪🇺 EUR" },
 ];
 
-// Every payment method below routes through ONE of two endpoints -
+// Every payment method below routes through ONE provider endpoint -
 // card/Apple Pay/Google Pay all go through Stripe Checkout (which
 // surfaces wallets automatically when the browser/device supports them),
-// Paystack has its own. This is the genuine unified experience the spec
-// asks for: the user picks a method they recognize, the routing behind
-// it is an implementation detail they never see.
-const PAYMENT_METHODS: { id: string; label: string; provider: "stripe" | "paystack" }[] = [
+// Paystack and PayPal have their own. This is the genuine unified
+// experience the spec asks for: the user picks a method they recognize,
+// the routing behind it is an implementation detail they never see.
+type PaymentProvider = "stripe" | "paystack" | "paypal";
+
+// PayPal is behind a build-time flag and off unless
+// NEXT_PUBLIC_PAYPAL_ENABLED is exactly "true". The server decides Sandbox
+// vs Live (PAYPAL_ENV, app/lib/paypal.ts) and enforces its own
+// PAYPAL_CHECKOUT_ENABLED flag.
+const PAYPAL_ENABLED = process.env.NEXT_PUBLIC_PAYPAL_ENABLED === "true";
+
+// PayPal plans carry exactly one currency each, and ScoutAfrica's are USD
+// (PAYPAL_CURRENCY in app/lib/paypal.ts - server-only, so not importable
+// here). PayPal is offered in every display currency, always charged and
+// labelled in USD.
+const PAYPAL_CURRENCY: SupportedCurrency = "USD";
+
+// Paystack is hidden from the picker while it is not working. Only the
+// option is hidden - its routes, webhook and data are untouched, and
+// setting this back to true restores it exactly as before.
+const PAYSTACK_VISIBLE = false;
+
+const PAYMENT_METHODS: { id: string; label: string; provider: PaymentProvider }[] = [
   { id: "card", label: "💳 Visa / Mastercard / American Express", provider: "stripe" },
   { id: "apple_pay", label: "🍎 Apple Pay", provider: "stripe" },
   { id: "google_pay", label: "🤖 Google Pay", provider: "stripe" },
-  { id: "paystack", label: "🟢 Paystack", provider: "paystack" },
+  ...(PAYSTACK_VISIBLE ? [{ id: "paystack", label: "🟢 Paystack", provider: "paystack" as const }] : []),
+  ...(PAYPAL_ENABLED ? [{ id: "paypal", label: "🅿️ PayPal", provider: "paypal" as const }] : []),
 ];
+
+const CHECKOUT_ENDPOINTS: Record<PaymentProvider, string> = {
+  stripe: "/api/stripe/create-checkout-session",
+  paystack: "/api/paystack/initialize",
+  paypal: "/api/paypal/create-subscription",
+};
 
 // Keep in sync with PAYSTACK_SUPPORTED in app/api/paystack/initialize/route.ts -
 // the backend route rejects any other currency with a 400, so the UI must
@@ -69,19 +95,16 @@ export default function UpgradePage() {
     init();
   }, [router]);
 
-  async function handlePaymentMethodSelect(methodId: string, provider: "stripe" | "paystack") {
+  async function handlePaymentMethodSelect(methodId: string, provider: PaymentProvider) {
     setProcessing(methodId);
 
     try {
-      const endpoint =
-        provider === "stripe"
-          ? "/api/stripe/create-checkout-session"
-          : "/api/paystack/initialize";
+      const endpoint = CHECKOUT_ENDPOINTS[provider];
 
       const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cycle, currency }),
+        body: JSON.stringify({ cycle, currency: provider === "paypal" ? PAYPAL_CURRENCY : currency }),
       });
 
       const data = await response.json();
@@ -109,6 +132,7 @@ export default function UpgradePage() {
   const availablePaymentMethods = PAYMENT_METHODS.filter(
     (method) => method.provider !== "paystack" || PAYSTACK_SUPPORTED_CURRENCIES.includes(currency)
   );
+  const paypalPrice = PRICE_POINTS[PAYPAL_CURRENCY];
 
   return (
     <main className="min-h-screen bg-gray-50 p-4 sm:p-8">
@@ -190,7 +214,19 @@ export default function UpgradePage() {
                 disabled={processing !== null}
                 className="w-full flex items-center justify-between bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-xl px-4 py-3.5 text-left font-medium text-gray-800 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm disabled:opacity-50 disabled:hover:translate-y-0"
               >
-                <span>{method.label}</span>
+                <span>
+                  {method.label}
+                  {/* The price shown above is in the display currency; say
+                      plainly what PayPal will actually charge when it differs. */}
+                  {method.provider === "paypal" && currency !== PAYPAL_CURRENCY && (
+                    <span className="block text-xs font-normal text-gray-500 mt-0.5">
+                      Billed in USD:{" "}
+                      {cycle === "monthly"
+                        ? `${formatPrice(paypalPrice.monthly, PAYPAL_CURRENCY)} / month`
+                        : `${formatPrice(paypalPrice.annual, PAYPAL_CURRENCY)} / year`}
+                    </span>
+                  )}
+                </span>
                 <span className="text-gray-400">
                   {processing === method.id ? "Redirecting..." : "→"}
                 </span>

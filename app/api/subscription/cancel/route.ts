@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
-import { stripe } from "../../../lib/stripe";
 import { supabaseAdmin } from "../../../lib/supabaseAdmin";
+import { PayPalApiError, PayPalUnavailableError, cancelSubscription, getPayPalConfig } from "../../../lib/paypal";
 
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY!;
 
@@ -55,6 +55,9 @@ export async function POST(request: NextRequest) {
     }
 
     if (subscription.payment_provider === "stripe" && subscription.stripe_subscription_id) {
+      // Loaded only for Stripe subscriptions, so PayPal/Paystack cancellation
+      // doesn't require STRIPE_SECRET_KEY.
+      const { stripe } = await import("../../../lib/stripe");
       try {
         await stripe.subscriptions.update(subscription.stripe_subscription_id, {
           cancel_at_period_end: true,
@@ -123,6 +126,40 @@ export async function POST(request: NextRequest) {
         .from("subscriptions")
         .update({
           status: "cancelled",
+          cancelled_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", subscription.id);
+    } else if (subscription.payment_provider === "paypal" && subscription.paypal_subscription_id) {
+      let paypalConfig;
+      try {
+        paypalConfig = getPayPalConfig();
+      } catch (configError) {
+        if (configError instanceof PayPalUnavailableError) {
+          console.error("PayPal cancel refused:", configError.message);
+          return NextResponse.json({ error: "PayPal is not available right now." }, { status: 503 });
+        }
+        throw configError;
+      }
+
+      try {
+        await cancelSubscription(paypalConfig, subscription.paypal_subscription_id, "Cancelled by the customer on ScoutAfrica");
+      } catch (paypalError) {
+        // 422 = PayPal says the subscription is not in a cancellable state
+        // (already cancelled/expired) - the goal is already met.
+        if (!(paypalError instanceof PayPalApiError && paypalError.status === 422)) {
+          throw paypalError;
+        }
+      }
+
+      // PayPal cancels immediately (no "at period end" option), but the
+      // customer keeps the time already paid for: 'renewing' stays Premium
+      // until expires_at, which a cancellation never moves. The
+      // BILLING.SUBSCRIPTION.CANCELLED webhook arrives at the same state.
+      await supabaseAdmin
+        .from("subscriptions")
+        .update({
+          status: "renewing",
           cancelled_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         })
