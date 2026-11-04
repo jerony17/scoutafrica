@@ -8,6 +8,11 @@
 //   - Confirmed reversal         -> revoke Premium now + cancel the PayPal subscription.
 //   - PARTIAL refund             -> keep Premium, keep the subscription.
 //   - Anything not confirmed     -> flagged for review, access untouched.
+//   - A renewal charged on a subscription whose access was revoked (the
+//     cancel never went through) -> never re-grants Premium; cancel again
+//     and flag the payment for a manual refund (guardRevokedRenewal).
+//
+// Open cases and how to resolve them: docs/paypal-refund-review.md.
 //
 // SECURITY: the event has already passed PayPal signature verification, but
 // its ids are still only used as lookup keys:
@@ -70,7 +75,9 @@ export interface RefundDeps {
   listTransactions(subscriptionId: string, start: Date, end: Date): Promise<PayPalTransaction[]>;
   getSubscriptionStatus(subscriptionId: string): Promise<string>;
   cancelSubscription(subscriptionId: string, reason: string): Promise<void>;
-  setPaymentStatus(saleId: string, status: AdjustedPaymentStatus): Promise<void>;
+  // Must only write while the stored status is one of onlyFrom (a
+  // conditional update), so a concurrent delivery can never move it back.
+  setPaymentStatus(saleId: string, status: AdjustedPaymentStatus, onlyFrom: string[]): Promise<void>;
   revokeAccess(rowId: number, update: RevocationUpdate): Promise<void>;
   recordOutcome(record: RefundOutcomeRecord): Promise<void>;
   now(): Date;
@@ -138,10 +145,19 @@ export function nextPaymentStatus(current: string, incoming: AdjustedPaymentStat
   return STATUS_RANK[incoming] > currentRank ? incoming : null;
 }
 
+// The stored statuses an update to `incoming` may replace: only lower-ranked
+// ones. Used as the WHERE condition of the write, so two deliveries racing
+// (e.g. REVERSED and REFUNDED) can't leave 'refunded' over 'reversed'.
+export function statusesBelow(incoming: AdjustedPaymentStatus): string[] {
+  return Object.keys(STATUS_RANK).filter((status) => STATUS_RANK[status] < STATUS_RANK[incoming]);
+}
+
+type CancelDeps = Pick<RefundDeps, "getSubscriptionStatus" | "cancelSubscription">;
+
 // Cancels at PayPal and reports "confirmed" ONLY when PayPal itself then
 // reports the subscription CANCELLED/EXPIRED. Checked first, so a
 // redelivered event never sends a second cancel request.
-async function ensureCancelled(deps: RefundDeps, subscriptionId: string): Promise<{ cancellation: PayPalCancellation; reason: string | null }> {
+async function ensureCancelled(deps: CancelDeps, subscriptionId: string): Promise<{ cancellation: PayPalCancellation; reason: string | null }> {
   const ended = (status: string) => status === "CANCELLED" || status === "EXPIRED";
 
   try {
@@ -149,16 +165,20 @@ async function ensureCancelled(deps: RefundDeps, subscriptionId: string): Promis
       return { cancellation: "confirmed", reason: null };
     }
 
+    // Any failure here (422 = not cancellable in its current state, or a
+    // timeout after PayPal may already have cancelled) leaves the outcome
+    // unknown - the re-read below decides.
+    let cancelError: unknown = null;
     try {
       await deps.cancelSubscription(subscriptionId, CANCELLATION_REASON);
     } catch (error) {
-      // 422 = not cancellable in its current state; re-read below decides.
-      if (!hasStatus(error, 422)) throw error;
+      cancelError = error;
     }
 
     const after = await deps.getSubscriptionStatus(subscriptionId);
     if (ended(after)) return { cancellation: "confirmed", reason: null };
-    return { cancellation: "pending", reason: `PayPal still reports subscription ${subscriptionId} as ${after} after cancel` };
+    const why = cancelError && !hasStatus(cancelError, 422) ? `cancel failed: ${describeError(cancelError)}; ` : "";
+    return { cancellation: "pending", reason: `${why}PayPal still reports subscription ${subscriptionId} as ${after} after cancel` };
   } catch (error) {
     return { cancellation: "pending", reason: `PayPal cancellation of ${subscriptionId} not confirmed: ${describeError(error)}` };
   }
@@ -238,7 +258,7 @@ export async function processRefundEvent(deps: RefundDeps, event: RefundWebhookE
     }
 
     const newStatus = nextPaymentStatus(payment.paymentStatus, adjusted);
-    if (newStatus) await deps.setPaymentStatus(payment.saleId, newStatus);
+    if (newStatus) await deps.setPaymentStatus(payment.saleId, newStatus, statusesBelow(newStatus));
 
     if (adjusted === "partially_refunded") {
       return finish({ outcome: "partial_refund_access_retained", paypalCancellation: "not_required", reviewReason: null });
@@ -259,4 +279,69 @@ export async function processRefundEvent(deps: RefundDeps, event: RefundWebhookE
       throw error;
     }
   }
+}
+
+// === Renewal after a revocation ===
+// A full refund/reversal revokes access and cancels the subscription. If
+// that cancel never went through (PayPal unreachable for the whole 3-day
+// redelivery window), PayPal goes on to charge the next renewal - and a
+// confirmed renewal would normally extend Premium. This blocks that: a
+// subscription with an access_revoked refund event never gets Premium
+// again. It is cancelled (again) and the payment is flagged on that
+// refund-event row for a manual refund.
+
+export interface RevokedRefundEvent {
+  id: number;
+  eventId: string;
+  reviewReason: string | null;
+}
+
+export interface RevokedRenewalDeps extends CancelDeps {
+  // Latest access_revoked refund event for this PayPal subscription, if any.
+  findRevokedRefundEvent(paypalSubscriptionId: string): Promise<RevokedRefundEvent | null>;
+  // Updates review_reason + paypal_cancellation on that row (so it shows up
+  // in the review query in docs/paypal-refund-review.md).
+  flagForReview(eventRowId: number, reviewReason: string, cancellation: PayPalCancellation): Promise<void>;
+}
+
+export type RevokedRenewalResult =
+  | { blocked: false }
+  | { blocked: true; refundEventId: string; cancellation: PayPalCancellation; reason: string; retry: boolean };
+
+// An admin marks a case handled by starting review_reason with this.
+export const RESOLVED_PREFIX = "RESOLVED:";
+
+// Adds this sale to the row's review note without repeating it on a
+// redelivery, and re-opens a previously resolved row.
+export function renewalReviewReason(existing: string | null, saleId: string, cancellationNote: string | null): string {
+  const note =
+    `Renewal payment ${saleId} was taken after access was revoked - Premium NOT re-granted; refund this payment manually` +
+    (cancellationNote ? ` (${cancellationNote})` : "");
+  if (!existing) return note;
+  if (existing.startsWith(RESOLVED_PREFIX)) return `${note} | previously ${existing}`;
+  if (existing.includes(`Renewal payment ${saleId} `)) return existing;
+  return `${note} | ${existing}`;
+}
+
+// Throws (-> webhook 500, PayPal redelivers) only if the lookup or the
+// flag write fails; it never returns "not blocked" on an error.
+export async function guardRevokedRenewal(
+  deps: RevokedRenewalDeps,
+  paypalSubscriptionId: string,
+  saleId: string
+): Promise<RevokedRenewalResult> {
+  const revoked = await deps.findRevokedRefundEvent(paypalSubscriptionId);
+  if (!revoked) return { blocked: false };
+
+  const { cancellation, reason } = await ensureCancelled(deps, paypalSubscriptionId);
+  const reviewReason = renewalReviewReason(revoked.reviewReason, saleId, reason);
+  await deps.flagForReview(revoked.id, reviewReason, cancellation);
+
+  return {
+    blocked: true,
+    refundEventId: revoked.eventId,
+    cancellation,
+    reason: reviewReason,
+    retry: cancellation === "pending",
+  };
 }

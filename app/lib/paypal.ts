@@ -1,5 +1,6 @@
 import "server-only";
 import type { PayPalBillingCycle, PayPalTransaction } from "./paypalBilling";
+import { fetchTextWithTimeout } from "./httpTimeout";
 
 // Server-only PayPal REST client (Subscriptions API v1 + webhook signature
 // verification). Credentials are read from the environment only and never
@@ -145,22 +146,27 @@ async function getAccessToken(config: PayPalConfig): Promise<string> {
   }
 
   const basic = Buffer.from(`${config.clientId}:${config.clientSecret}`).toString("base64");
-  const response = await fetch(`${config.apiBase}/v1/oauth2/token`, {
-    method: "POST",
-    headers: {
-      Authorization: `Basic ${basic}`,
-      "Content-Type": "application/x-www-form-urlencoded",
+  // Timeouts throw RequestTimeoutError (see httpTimeout.ts).
+  const response = await fetchTextWithTimeout(
+    `${config.apiBase}/v1/oauth2/token`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${basic}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: "grant_type=client_credentials",
+      cache: "no-store",
     },
-    body: "grant_type=client_credentials",
-    cache: "no-store",
-  });
+    "PayPal POST /v1/oauth2/token"
+  );
 
   if (!response.ok) {
     throw new PayPalApiError("PayPal authentication failed", response.status, null);
   }
 
-  const data = (await response.json()) as { access_token?: string; expires_in?: number };
-  if (!data.access_token) {
+  const data = parseJson<{ access_token?: string; expires_in?: number }>(response.text);
+  if (!data?.access_token) {
     throw new PayPalApiError("PayPal authentication returned no token", response.status, null);
   }
 
@@ -180,19 +186,29 @@ async function paypalRequest<T>(
   init: { method: "GET" | "POST"; body?: string; headers?: Record<string, string> }
 ): Promise<{ status: number; data: T | null }> {
   const token = await getAccessToken(config);
-  const response = await fetch(`${config.apiBase}${path}`, {
-    method: init.method,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-      ...init.headers,
+  const label = `PayPal ${init.method} ${path.split("?")[0]}`;
+  // Timeouts throw RequestTimeoutError: the outcome is unknown, so callers
+  // re-read PayPal's state rather than assume the request did nothing.
+  const response = await fetchTextWithTimeout(
+    `${config.apiBase}${path}`,
+    {
+      method: init.method,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        ...init.headers,
+      },
+      body: init.body,
+      cache: "no-store",
     },
-    body: init.body,
-    cache: "no-store",
-  });
+    label
+  );
 
-  const text = await response.text();
-  const data = text ? (JSON.parse(text) as T) : null;
+  // An outage can return an HTML error page instead of JSON.
+  const data = parseJson<T>(response.text);
+  if (response.ok && response.text && data === null) {
+    throw new PayPalApiError(`${label} returned an unreadable response`, 502, null);
+  }
 
   if (!response.ok) {
     // PayPal error bodies carry a name/issue code, never our credentials.
@@ -200,10 +216,19 @@ async function paypalRequest<T>(
       (data as { details?: { issue?: string }[]; name?: string } | null)?.details?.[0]?.issue ??
       (data as { name?: string } | null)?.name ??
       null;
-    throw new PayPalApiError(`PayPal ${init.method} ${path.split("?")[0]} failed`, response.status, issue);
+    throw new PayPalApiError(`${label} failed`, response.status, issue);
   }
 
   return { status: response.status, data };
+}
+
+function parseJson<T>(text: string): T | null {
+  if (!text) return null;
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    return null;
+  }
 }
 
 export interface PayPalSubscription {
