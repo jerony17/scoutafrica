@@ -23,6 +23,7 @@ import {
   type PayPalBillingCycle,
   type PayPalTransaction,
 } from "../../../lib/paypalBilling";
+import { processRefundEvent, type RefundDeps } from "../../../lib/paypalRefunds";
 
 type PayPalConfig = ReturnType<typeof getPayPalConfig>;
 
@@ -32,6 +33,7 @@ interface PayPalWebhookEvent {
   resource?: {
     id?: string;
     billing_agreement_id?: string;
+    sale_id?: string;
   };
 }
 
@@ -100,7 +102,7 @@ export async function POST(request: NextRequest) {
 
       case "PAYMENT.SALE.REFUNDED":
       case "PAYMENT.SALE.REVERSED":
-        await handleRefundOrReversal(event);
+        await handleRefundOrReversal(config, event);
         break;
 
       default:
@@ -212,6 +214,19 @@ async function handlePaymentCompleted(config: PayPalConfig, event: PayPalWebhook
       throw new Error(`payment not confirmed yet: ${check.reason}`); // 500 -> PayPal retries
     }
     throw new IgnoredEvent(`payment rejected: ${check.reason}`);
+  }
+
+  // A refunded or reversed sale never grants time again, even if this
+  // event is redelivered and PayPal still lists the sale as COMPLETED.
+  const { data: recorded, error: recordedError } = await supabaseAdmin
+    .from("payment_history")
+    .select("payment_status")
+    .eq("payment_provider", "paypal")
+    .eq("transaction_reference", transactionId)
+    .maybeSingle();
+  if (recordedError) throw recordedError;
+  if (recorded?.payment_status === "refunded" || recorded?.payment_status === "reversed") {
+    throw new IgnoredEvent(`payment ${transactionId} is already recorded as ${recorded.payment_status}`);
   }
 
   const row = await loadSubscriptionRow(userId);
@@ -348,30 +363,96 @@ async function handleSubscriptionLifecycle(config: PayPalConfig, event: PayPalWe
 }
 
 // === PAYMENT.SALE.REFUNDED / REVERSED ===
-// Marks the recorded payment as refunded. Access is NOT revoked
-// automatically here (a partial or goodwill refund shouldn't necessarily
-// end membership) - logged for an admin decision instead.
-async function handleRefundOrReversal(event: PayPalWebhookEvent) {
-  const resource = event.resource as { id?: string; sale_id?: string } | undefined;
-  const saleId = event.event_type === "PAYMENT.SALE.REFUNDED" ? resource?.sale_id : resource?.id;
+// Policy and verification rules live in lib/paypalRefunds.ts (unit-tested);
+// this only supplies the real Supabase and PayPal calls. A confirmed full
+// refund or reversal revokes Premium and cancels the subscription; a
+// partial refund keeps both; anything unconfirmed is recorded in
+// paypal_refund_events as needs_review without touching access.
+async function handleRefundOrReversal(config: PayPalConfig, event: PayPalWebhookEvent) {
+  const deps: RefundDeps = {
+    async findRecordedPayment(saleIds) {
+      const { data, error } = await supabaseAdmin
+        .from("payment_history")
+        .select("subscription_id, transaction_reference, payment_status, payment_date")
+        .eq("payment_provider", "paypal")
+        .in("transaction_reference", saleIds)
+        .limit(1);
+      if (error) throw error;
+      const row = data?.[0];
+      return row
+        ? {
+            saleId: row.transaction_reference,
+            subscriptionRowId: row.subscription_id,
+            paymentStatus: row.payment_status,
+            paymentDate: row.payment_date,
+          }
+        : null;
+    },
+    async loadSubscriptionRow(rowId) {
+      const { data, error } = await supabaseAdmin
+        .from("subscriptions")
+        .select("id, status, payment_provider, paypal_subscription_id, expires_at, cancelled_at")
+        .eq("id", rowId)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    listTransactions: (subscriptionId, start, end) => listSubscriptionTransactions(config, subscriptionId, start, end),
+    getSubscriptionStatus: async (subscriptionId) => (await getSubscription(config, subscriptionId)).status,
+    cancelSubscription: (subscriptionId, reason) => cancelSubscription(config, subscriptionId, reason),
+    async setPaymentStatus(saleId, status) {
+      const { error } = await supabaseAdmin
+        .from("payment_history")
+        .update({ payment_status: status })
+        .eq("payment_provider", "paypal")
+        .eq("transaction_reference", saleId);
+      if (error) throw error;
+    },
+    async revokeAccess(rowId, update) {
+      const { error } = await supabaseAdmin
+        .from("subscriptions")
+        .update({ ...update, updated_at: new Date().toISOString() })
+        .eq("id", rowId);
+      if (error) throw error;
+    },
+    async recordOutcome(record) {
+      // One row per PayPal event id: a redelivery updates it in place.
+      const { error } = await supabaseAdmin.from("paypal_refund_events").upsert(
+        {
+          paypal_event_id: record.eventId,
+          event_type: record.eventType,
+          sale_id: record.saleId,
+          paypal_subscription_id: record.paypalSubscriptionId,
+          subscription_id: record.subscriptionRowId,
+          outcome: record.outcome,
+          paypal_cancellation: record.paypalCancellation,
+          review_reason: record.reviewReason,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "paypal_event_id" }
+      );
+      if (error) throw error;
+    },
+    now: () => new Date(),
+  };
 
-  if (!saleId) {
-    throw new IgnoredEvent("refund/reversal event has no sale id");
+  const result = await processRefundEvent(deps, event);
+  if (result.kind === "ignored") {
+    throw new IgnoredEvent(result.reason);
   }
 
-  const { data, error } = await supabaseAdmin
-    .from("payment_history")
-    .update({ payment_status: "refunded" })
-    .eq("payment_provider", "paypal")
-    .eq("transaction_reference", saleId)
-    .select("subscription_id");
+  const { record } = result;
+  const summary =
+    `PayPal ${record.eventType} ${record.eventId}: ${record.outcome}, cancellation ${record.paypalCancellation}` +
+    ` (sale ${record.saleId ?? "?"}, subscription ${record.paypalSubscriptionId ?? "?"})` +
+    (record.reviewReason ? ` - ${record.reviewReason}` : "");
+  if (record.outcome === "needs_review" || record.paypalCancellation === "pending") {
+    console.error(`${summary} - NEEDS REVIEW`);
+  } else {
+    console.warn(summary);
+  }
 
-  if (error) throw error;
-
-  if (data && data.length > 0) {
-    console.warn(
-      `PayPal ${event.event_type} for payment ${saleId} (subscription row ${data[0].subscription_id}) - ` +
-        "payment marked refunded; review whether Premium access should be ended."
-    );
+  if (result.retry) {
+    throw new Error("refund/reversal not fully processed yet - PayPal will redeliver"); // 500 -> PayPal retries
   }
 }

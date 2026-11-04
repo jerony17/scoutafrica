@@ -486,7 +486,7 @@ export interface PaymentHistoryEntry {
   amount: number;
   currency: string;
   transaction_reference: string | null;
-  payment_status: "success" | "failed" | "pending" | "refunded";
+  payment_status: "success" | "failed" | "pending" | "refunded" | "partially_refunded" | "reversed";
   payment_date: string | null;
 }
 
