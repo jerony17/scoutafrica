@@ -4,11 +4,14 @@ import { cookies } from "next/headers";
 import {
   BASE_CURRENCY,
   getAmountForCycle,
+  getEffectiveSubscriptionStatus,
   toPaystackAmount,
   type BillingCycle,
+  type SubscriptionStatus,
   type SupportedCurrency,
 } from "../../../lib/pricing";
 import { checkRateLimit } from "../../../lib/rateLimit";
+import { supabaseAdmin } from "../../../lib/supabaseAdmin";
 
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY!;
 
@@ -73,6 +76,35 @@ export async function POST(request: NextRequest) {
         { error: "Too many requests. Please try again later." },
         { status: 429, headers: { "Retry-After": String(rateLimit.retryAfterSeconds) } }
       );
+    }
+
+    // Don't start a second paid subscription on top of active Premium from
+    // any provider: the existing one keeps billing on its own, and this
+    // checkout's charge.success would overwrite that subscription's record
+    // (e.g. a live PayPal one). Users without active Premium reach Paystack
+    // exactly as before. If the lookup fails, no NEW checkout is started
+    // (temporary 503, the customer can retry).
+    const { data: existing, error: existingError } = await supabaseAdmin
+      .from("subscriptions")
+      .select("status, expires_at")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (existingError) {
+      console.error("Paystack initialize: could not check for an existing subscription:", existingError);
+      return NextResponse.json(
+        { error: "Checkout is temporarily unavailable. Please try again in a moment." },
+        { status: 503 }
+      );
+    }
+    if (existing) {
+      const effective = getEffectiveSubscriptionStatus(existing.status as SubscriptionStatus, existing.expires_at);
+      if (effective === "premium" || effective === "renewing") {
+        return NextResponse.json(
+          { error: "You already have an active Premium membership." },
+          { status: 409 }
+        );
+      }
     }
 
     const amount = getAmountForCycle(currency, cycle);

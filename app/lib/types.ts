@@ -460,13 +460,16 @@ export interface Subscription {
   billing_cycle: "monthly" | "annual" | null;
   amount: number | null;
   currency: string | null;
-  payment_provider: "stripe" | "paystack" | null;
+  payment_provider: "stripe" | "paystack" | "paypal" | null;
   payment_method: string | null;
   transaction_id: string | null;
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
   paystack_customer_code: string | null;
   paystack_subscription_code: string | null;
+  // Optional until migration 049 (PayPal columns) is applied.
+  paypal_subscription_id?: string | null;
+  paypal_plan_id?: string | null;
   status: "free" | "premium" | "pending" | "cancelled" | "expired" | "renewing" | "past_due";
   started_at: string | null;
   expires_at: string | null;
@@ -478,12 +481,12 @@ export interface Subscription {
 export interface PaymentHistoryEntry {
   id: number;
   subscription_id: number;
-  payment_provider: "stripe" | "paystack";
+  payment_provider: "stripe" | "paystack" | "paypal";
   payment_method: string | null;
   amount: number;
   currency: string;
   transaction_reference: string | null;
-  payment_status: "success" | "failed" | "pending" | "refunded";
+  payment_status: "success" | "failed" | "pending" | "refunded" | "partially_refunded" | "reversed";
   payment_date: string | null;
 }
 

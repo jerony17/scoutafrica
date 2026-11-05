@@ -138,6 +138,11 @@ export default function MembershipStatus() {
   const effectiveStatus = getEffectiveSubscriptionStatus(subscription?.status, subscription?.expires_at);
   const isActive = effectiveStatus === "premium" || effectiveStatus === "renewing";
   const remaining = daysRemaining(subscription?.expires_at ?? null);
+  // "Renew" always starts a Stripe checkout. For an active PayPal member
+  // that would open a second, overlapping subscription (PayPal renews on
+  // its own), so the button is hidden for them - Stripe and Paystack
+  // members see exactly what they saw before.
+  const showRenewButton = !(isActive && subscription?.payment_provider === "paypal");
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sm:p-8">
@@ -179,13 +184,15 @@ export default function MembershipStatus() {
       )}
 
       <div className="flex flex-wrap gap-3">
-        <button
-          onClick={handleUpgradeOrRenew}
-          disabled={startingCheckout}
-          className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white text-sm font-semibold px-5 py-2.5 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 disabled:opacity-50"
-        >
-          {startingCheckout ? "Redirecting..." : isActive ? "Renew" : "Upgrade to Premium"}
-        </button>
+        {showRenewButton && (
+          <button
+            onClick={handleUpgradeOrRenew}
+            disabled={startingCheckout}
+            className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white text-sm font-semibold px-5 py-2.5 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 disabled:opacity-50"
+          >
+            {startingCheckout ? "Redirecting..." : isActive ? "Renew" : "Upgrade to Premium"}
+          </button>
+        )}
         {isActive && effectiveStatus !== "renewing" && (
           <button
             onClick={handleCancel}

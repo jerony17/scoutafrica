@@ -1,5 +1,24 @@
 import type { NextConfig } from "next";
 
+// Supabase host for the CSP's connect-src, from the same variable the
+// browser client (app/lib/supabase.ts) connects to, so the policy allows
+// exactly that project (production in production, the test project
+// locally). Unset falls back to the production host; anything other than
+// https://<ref>.supabase.co fails the build instead of widening the policy.
+const PRODUCTION_SUPABASE_HOST = "dbleskorympnnhekbkgo.supabase.co";
+
+function supabaseCspHost(): string {
+  const raw = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!raw) return PRODUCTION_SUPABASE_HOST;
+  const url = new URL(raw);
+  if (url.protocol !== "https:" || url.port || !/^[a-z0-9]+\.supabase\.co$/.test(url.hostname)) {
+    throw new Error(
+      `NEXT_PUBLIC_SUPABASE_URL must be an https://<project-ref>.supabase.co URL to build the CSP (got host "${url.hostname}").`
+    );
+  }
+  return url.hostname;
+}
+
 const nextConfig: NextConfig = {
   // Lets other devices on the local network (e.g. testing on a phone via
   // the computer's LAN IP) load Next.js dev-server resources - without
@@ -82,6 +101,7 @@ const nextConfig: NextConfig = {
   // default), confirmed identical across every route tested; adding a
   // second, possibly conflicting one here would be redundant at best.
   async headers() {
+    const supabaseHost = supabaseCspHost();
     const csp = [
       "default-src 'self'",
       "script-src 'self' 'unsafe-inline'",
@@ -100,7 +120,7 @@ const nextConfig: NextConfig = {
       // image in the app uses.
       "img-src 'self' data: https://placehold.co",
       "font-src 'self' data:",
-      "connect-src 'self' https://dbleskorympnnhekbkgo.supabase.co wss://dbleskorympnnhekbkgo.supabase.co",
+      `connect-src 'self' https://${supabaseHost} wss://${supabaseHost}`,
       "object-src 'none'",
       "base-uri 'self'",
       "frame-ancestors 'none'",
