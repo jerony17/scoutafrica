@@ -1,8 +1,13 @@
 -- Migration: 050_paypal_refunds_and_reversals
 --
 -- APPLIED to the TEST project (gdoadajmggmawiiyoaus) on 2026-11-04 via
--- apply_migration. NOT applied to production. Must be applied
--- (test project first, then production) BEFORE the refund/reversal webhook
+-- apply_migration.
+-- APPLIED to production (dbleskorympnnhekbkgo) on 2026-11-05 via the
+-- tracked apply_migration mechanism (migration history version
+-- 20261105052858), after a read-only pre-check of the live schema;
+-- verified afterwards (six-value status CHECK, table, CHECKs, partial
+-- index, RLS on with no policies, no anon/authenticated access).
+-- Had to be applied BEFORE the refund/reversal webhook
 -- code that writes these values is deployed - otherwise those events fail
 -- with a CHECK / missing-table error and PayPal keeps redelivering them
 -- (access is still revoked first, so a full refund is not lost, but no
