@@ -6,6 +6,7 @@ import Image from "next/image";
 import { supabase } from "../lib/supabase";
 import { FiSearch, FiCheckCircle, FiUser, FiX } from "react-icons/fi"; 
 import { CountryFlag } from "../lib/CountryFlag";
+import RegisterPrompt from "../components/RegisterPrompt";
 
 // === Confirmed against the live database before writing this page ===
 // player table has no player_type column (Professional/Semi-Pro/Academy)
@@ -54,7 +55,40 @@ type PlayerRow = {
   slug: string | null;
 };
 
+// The directory is for signed-in members only. Signed-out visitors get the
+// registration prompt and the directory (and its query) never mounts.
+// Individual shared profiles (/player-profile/<slug>) stay public.
 export default function FindPlayersPage() {
+  const [signedIn, setSignedIn] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!cancelled) setSignedIn(!!user);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (signedIn === null) {
+    return <main className="min-h-screen bg-gray-50" />;
+  }
+
+  if (!signedIn) {
+    return (
+      <main className="min-h-screen bg-gray-50">
+        <div className="max-w-xl mx-auto px-4 sm:px-8 py-16">
+          <RegisterPrompt />
+        </div>
+      </main>
+    );
+  }
+
+  return <FindPlayersDirectory />;
+}
+
+function FindPlayersDirectory() {
   const [players, setPlayers] = useState<PlayerRow[]>([]);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);

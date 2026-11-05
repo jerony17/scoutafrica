@@ -2,6 +2,7 @@
 
 import { use, useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
+import { REGISTER_PATH, REGISTER_PROMPT_MESSAGE } from "../../lib/registration";
 import {
   isAchievement,
   isArrayOf,
@@ -168,8 +169,9 @@ export default function PlayerProfile({
     } = await supabase.auth.getUser();
 
     if (!user) {
-      alert("Please sign in as a scout.");
+      alert(REGISTER_PROMPT_MESSAGE);
       setSavingWatchlist(false);
+      window.location.href = REGISTER_PATH;
       return;
     }
 

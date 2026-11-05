@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { PLAYER_PUBLIC_COLUMNS } from "./playerColumns";
 import type { Player } from "./types";
 
 // Data layer for the homepage's Hero Spotlight player and the 4 Featured
@@ -242,7 +243,7 @@ type SlotRow = {
 export async function getHeroSpotlightPlayer(): Promise<HeroSpotlightPlayer> {
   const { data } = await supabase
     .from("featured_player_slots")
-    .select("slot_key, active, player:player_id(*)")
+    .select(`slot_key, active, player:player_id(${PLAYER_PUBLIC_COLUMNS})`)
     .eq("slot_key", "hero_spotlight")
     .eq("active", true)
     .maybeSingle<SlotRow>();
@@ -254,7 +255,7 @@ export async function getHeroSpotlightPlayer(): Promise<HeroSpotlightPlayer> {
 export async function getFeaturedPlayers(): Promise<FeaturedPlayerSlot[]> {
   const { data } = await supabase
     .from("featured_player_slots")
-    .select("slot_key, active, player:player_id(*)")
+    .select(`slot_key, active, player:player_id(${PLAYER_PUBLIC_COLUMNS})`)
     .in("slot_key", FEATURED_SLOT_KEYS)
     .eq("active", true)
     .returns<SlotRow[]>();

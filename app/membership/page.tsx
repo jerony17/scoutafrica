@@ -52,7 +52,6 @@ export default function MembershipStatus() {
       const {
         data: { user },
       } = await supabase.auth.getUser(); 
-      console.log("Logged in user:", user?.id, user?.email);
 
       if (!user) {
         setLoading(false);

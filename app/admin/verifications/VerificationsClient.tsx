@@ -4,6 +4,7 @@ import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "../../lib/supabase";
+import { PLAYER_PUBLIC_COLUMNS } from "../../lib/playerColumns";
 import { isAccountVerification, isArrayOf, isPlayer, isVerificationDocument } from "../../lib/types";
 import type { AccountVerification, Player, VerificationDocument } from "../../lib/types";
 
@@ -70,8 +71,8 @@ export default function VerificationsClient({
 
     async function loadData() {
       const [pending, verified, orgs] = await Promise.all([
-        supabase.from("player").select("*").or("verified.is.null,verified.eq.false"),
-        supabase.from("player").select("*").eq("verified", true),
+        supabase.from("player").select(PLAYER_PUBLIC_COLUMNS).or("verified.is.null,verified.eq.false"),
+        supabase.from("player").select(PLAYER_PUBLIC_COLUMNS).eq("verified", true),
         supabase.from("account_verifications").select("*").order("created_at", { ascending: false }),
       ]);
 

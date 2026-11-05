@@ -188,8 +188,8 @@ export default function AdminPanel() {
           latestTicketsRes,
           growthPlayersRes,
         ] = await Promise.all([
-          supabase.from("player").select("*", { count: "exact", head: true }),
-          supabase.from("player").select("*", { count: "exact", head: true }).eq("verified", true),
+          supabase.from("player").select("id", { count: "exact", head: true }),
+          supabase.from("player").select("id", { count: "exact", head: true }).eq("verified", true),
           supabase.from("club_profiles").select("*", { count: "exact", head: true }),
           supabase
             .from("account_verifications")

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { supabase } from "../../lib/supabase";
+import { PLAYER_PUBLIC_COLUMNS } from "../../lib/playerColumns";
 import type { Player } from "../../lib/types";
 import { FiArrowLeft, FiSearch, FiX, FiCheckCircle, FiAlertCircle } from "react-icons/fi";
 
@@ -100,7 +101,7 @@ export default function AdminFeaturedPlayersPage() {
 
     const { data, error } = await supabase
       .from("featured_player_slots")
-      .select("id, slot_key, active, player_id, player:player_id(*)")
+      .select(`id, slot_key, active, player_id, player:player_id(${PLAYER_PUBLIC_COLUMNS})`)
       .returns<SlotRow[]>();
 
     if (error) {
@@ -153,7 +154,7 @@ export default function AdminFeaturedPlayersPage() {
     let cancelled = false;
     async function runSearch() {
       setSearchLoading(true);
-      let query = supabase.from("player").select("*").order("full_name", { ascending: true }).limit(20);
+      let query = supabase.from("player").select(PLAYER_PUBLIC_COLUMNS).order("full_name", { ascending: true }).limit(20);
       if (debouncedSearch) {
         query = query.or(`full_name.ilike.%${debouncedSearch}%,scoutafrica_id.ilike.%${debouncedSearch}%`);
       }

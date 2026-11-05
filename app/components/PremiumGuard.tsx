@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { isPremium } from "../lib/isPremium";
+import RegisterPrompt from "./RegisterPrompt";
 
 const BENEFITS = [
   "Direct messaging with players, scouts, and clubs",
@@ -21,6 +22,7 @@ const BENEFITS = [
 // directly.
 export default function PremiumGuard({ children }: { children: React.ReactNode }) {
   const [checking, setChecking] = useState(true);
+  const [signedIn, setSignedIn] = useState(false);
   const [hasPremium, setHasPremium] = useState(false);
 
   useEffect(() => {
@@ -34,6 +36,7 @@ export default function PremiumGuard({ children }: { children: React.ReactNode }
       const premium = await isPremium(user?.id);
 
       if (!cancelled) {
+        setSignedIn(!!user);
         setHasPremium(premium);
         setChecking(false);
       }
@@ -52,6 +55,12 @@ export default function PremiumGuard({ children }: { children: React.ReactNode }
 
   if (hasPremium) {
     return <>{children}</>;
+  }
+
+  // Signed-out visitors are asked to register; signed-in members see the
+  // Premium upgrade prompt as before.
+  if (!signedIn) {
+    return <RegisterPrompt />;
   }
 
   return (

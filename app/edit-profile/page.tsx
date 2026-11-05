@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { supabase } from "../lib/supabase";
+import { PLAYER_PUBLIC_COLUMNS } from "../lib/playerColumns";
+import { readPlayerPrivate, type PlayerPrivateFields } from "../lib/playerPrivate";
 import { isPlayer } from "../lib/types";
 import type { Player, CareerHistory } from "../lib/types";
 
@@ -39,6 +41,8 @@ export default function EditProfile() {
 
   const [selectedProfilePhoto, setSelectedProfilePhoto] = useState<File | null>(null);
   const [selectedCoverPhoto, setSelectedCoverPhoto] = useState<File | null>(null);
+  // The owner's own private fields; null until loaded (see saveProfile).
+  const [privateFields, setPrivateFields] = useState<PlayerPrivateFields | null>(null);
 
   async function loadPlayer() {
     const {
@@ -49,12 +53,14 @@ export default function EditProfile() {
 
     const { data } = await supabase
       .from("player")
-      .select("*")
+      .select(PLAYER_PUBLIC_COLUMNS)
       .eq("user_id", user.id)
       .single();
 
     if (data && isPlayer(data)) {
-      setPlayer(data);
+      const ownPrivate = readPlayerPrivate(await supabase.rpc("get_player_private", { p_player_id: data.id }));
+      setPrivateFields(ownPrivate);
+      setPlayer({ ...data, date_of_birth: ownPrivate?.date_of_birth ?? null });
     }
   }
 
@@ -198,7 +204,9 @@ export default function EditProfile() {
         current_club: player.current_club,
         nationality: player.nationality,
         photo_url: player.photo_url,
-        date_of_birth: player.date_of_birth,
+        // Only when it was actually loaded - otherwise a failed private
+        // lookup would overwrite the stored date of birth with null.
+        ...(privateFields ? { date_of_birth: player.date_of_birth } : {}),
         height: player.height,
         weight: player.weight,
         preferred_foot: player.preferred_foot,
@@ -213,8 +221,7 @@ export default function EditProfile() {
         yellow_cards: player.yellow_cards,
         red_card: player.red_card,
       })
-      .eq("id", player.id)
-      .select();
+      .eq("id", player.id);
 
     if (error) {
       alert(error.message);
@@ -497,6 +504,8 @@ export default function EditProfile() {
               setPlayer({ ...player, date_of_birth: e.target.value })
             }
             placeholder="Date of Birth"
+            disabled={!privateFields}
+            title={privateFields ? undefined : "Date of birth could not be loaded right now"}
           />
 
           <label className="font-medium">Contract Expiry</label>

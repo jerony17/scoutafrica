@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { supabase } from "../../lib/supabase";
+import { REGISTER_PATH, REGISTER_PROMPT_MESSAGE } from "../../lib/registration";
 import type { Player } from "../../lib/types";
 
 type Props = {
@@ -54,8 +55,9 @@ export default function ActionButtons({ player, addToWatchlist, savingWatchlist 
     } = await supabase.auth.getUser();
 
     if (!user) {
-      alert("Please sign in to report a profile.");
+      alert(REGISTER_PROMPT_MESSAGE);
       setSubmittingReport(false);
+      window.location.href = REGISTER_PATH;
       return;
     }
 

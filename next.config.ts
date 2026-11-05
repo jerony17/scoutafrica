@@ -121,6 +121,10 @@ const nextConfig: NextConfig = {
       "img-src 'self' data: https://placehold.co",
       "font-src 'self' data:",
       `connect-src 'self' https://${supabaseHost} wss://${supabaseHost}`,
+      // Highlight videos play straight from Supabase Storage
+      // (player-profile/components/HighlightVideos.tsx <video src>); without
+      // media-src they fall back to default-src 'self' and are blocked.
+      `media-src 'self' https://${supabaseHost}`,
       "object-src 'none'",
       "base-uri 'self'",
       "frame-ancestors 'none'",

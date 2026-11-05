@@ -6,6 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import UpgradeBanner from "../components/UpgradeBanner";
 import { supabase } from "../lib/supabase";
+import { PLAYER_PUBLIC_COLUMNS } from "../lib/playerColumns";
 import { isArrayOf, isCareerHistoryEntry, isPlayer } from "../lib/types";
 import type { Player } from "../lib/types"; 
 import { FaEdit } from "react-icons/fa";
@@ -74,7 +75,7 @@ const [missingFields, setMissingFields] = useState<string[]>([]);
       // and several player rows have no email at all)
       const { data, error } = await supabase
         .from("player")
-        .select("*")
+        .select(PLAYER_PUBLIC_COLUMNS)
         .eq("user_id", user.id)
         .maybeSingle();
 

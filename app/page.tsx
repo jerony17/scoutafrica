@@ -23,9 +23,10 @@ export default async function Home() {
   // Featured Player slots use fallback/demo data for now, via
   // app/lib/featuredPlayers.ts, per that file's own documented plan for
   // a future Admin -> Featured Players page.
+  // "id", not "*": private player columns are not readable by visitors.
   const { count: playerCount } = await supabase
     .from("player")
-    .select("*", { count: "exact", head: true });
+    .select("id", { count: "exact", head: true });
 
   const { count: videoCount } = await supabase
     .from("videos")

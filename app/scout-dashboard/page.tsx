@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "../lib/supabase";
+import { PLAYER_PUBLIC_COLUMNS } from "../lib/playerColumns";
 import { isArrayOf, isPlayer } from "../lib/types";
 import type { Player } from "../lib/types";
 import UpgradeBanner from "../components/UpgradeBanner";
@@ -53,7 +54,7 @@ useEffect(() => {
   async function loadPlayers() {
     const { data, error } = await supabase
       .from("player")
-      .select("*")
+      .select(PLAYER_PUBLIC_COLUMNS)
       .order("created_at", { ascending: false })
       .limit(6);
 
