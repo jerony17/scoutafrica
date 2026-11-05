@@ -7,6 +7,55 @@ import type { NextConfig } from "next";
 // https://<ref>.supabase.co fails the build instead of widening the policy.
 const PRODUCTION_SUPABASE_HOST = "dbleskorympnnhekbkgo.supabase.co";
 
+// Preview deployments must use the TEST Supabase project and nothing else.
+// The project's shared Preview variables are the same entries as
+// Production's, so without this a new branch's Preview would build and run
+// against the Production database. Fails closed at config load - before
+// compiling or rendering any page, so before any database is contacted.
+// Only Vercel Preview builds are checked (VERCEL_ENV is set by Vercel);
+// Production builds and local development are unaffected. Never prints the
+// URL or any key - only the verified project reference.
+const TEST_SUPABASE_REF = "gdoadajmggmawiiyoaus";
+
+function assertPreviewUsesTestDatabase(): void {
+  if (process.env.VERCEL_ENV !== "preview") return;
+
+  const refuse = (reason: string): never => {
+    throw new Error(
+      `Preview build refused: NEXT_PUBLIC_SUPABASE_URL ${reason}. ` +
+        `Preview deployments may only use the test Supabase project (${TEST_SUPABASE_REF}).`
+    );
+  };
+
+  const raw = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!raw) refuse("is not set");
+
+  let url: URL;
+  try {
+    url = new URL(raw as string);
+  } catch {
+    return refuse("is not a valid URL");
+  }
+
+  if (url.hostname === PRODUCTION_SUPABASE_HOST) refuse("points to the Production project");
+  if (
+    url.protocol !== "https:" ||
+    url.hostname !== `${TEST_SUPABASE_REF}.supabase.co` ||
+    url.port ||
+    url.username ||
+    url.password ||
+    url.pathname !== "/" ||
+    url.search ||
+    url.hash
+  ) {
+    refuse("is not the test project");
+  }
+
+  console.log(`Preview build: Supabase project ${TEST_SUPABASE_REF} verified (test project).`);
+}
+
+assertPreviewUsesTestDatabase();
+
 function supabaseCspHost(): string {
   const raw = process.env.NEXT_PUBLIC_SUPABASE_URL;
   if (!raw) return PRODUCTION_SUPABASE_HOST;
