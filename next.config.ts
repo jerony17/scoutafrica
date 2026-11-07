@@ -1,6 +1,6 @@
 import type { NextConfig } from "next";
 
-// Supabase host for the CSP's connect-src, from the same variable the
+// Supabase host for the CSP's connect-src (and next/image), from the same variable the
 // browser client (app/lib/supabase.ts) connects to, so the policy allows
 // exactly that project (production in production, the test project
 // locally). Unset falls back to the production host; anything other than
@@ -96,6 +96,17 @@ const nextConfig: NextConfig = {
       {
         protocol: "https",
         hostname: "dbleskorympnnhekbkgo.supabase.co",
+      },
+      // Public Storage files (profile, cover and gallery photos) of the
+      // project this build actually uses - the test project on Previews and
+      // locally. Without it next/image refuses every test-project image
+      // ("url" parameter is not allowed) and shows a broken image. Only the
+      // public-object path, no query strings.
+      {
+        protocol: "https",
+        hostname: supabaseCspHost(),
+        pathname: "/storage/v1/object/public/**",
+        search: "",
       },
       {
         protocol: "https",
