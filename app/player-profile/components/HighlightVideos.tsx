@@ -24,8 +24,14 @@ export default function HighlightVideos({ videos }: Props) {
               key={video.id}
               className="bg-white rounded-xl shadow p-4"
             >
+              {/* preload="metadata": load only duration/first frame, not
+                  the whole file, until the viewer presses play.
+                  playsInline: play in the page on iPhones instead of
+                  forcing full screen. */}
               <video
                 controls
+                preload="metadata"
+                playsInline
                 className="w-full rounded-lg"
                 src={video.video_url}
               />

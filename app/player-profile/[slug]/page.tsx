@@ -3,6 +3,8 @@
 import { use, useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { REGISTER_PATH, REGISTER_PROMPT_MESSAGE } from "../../lib/registration";
+import { isPremium } from "../../lib/isPremium";
+import { videoFileError, videoStoragePath } from "../../lib/videoUpload";
 import {
   isAchievement,
   isArrayOf,
@@ -41,6 +43,9 @@ export default function PlayerProfile({
   const [videos, setVideos] = useState<VideoRecord[]>([]);
   const [selectedVideo, setSelectedVideo] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  // The profile owner's own Premium status - only drives the upload form's
+  // free-tier limit; the videos INSERT policy enforces it server-side.
+  const [ownerIsPremium, setOwnerIsPremium] = useState(false);
 
   const [photos, setPhotos] = useState<PlayerPhoto[]>([]);
   const [selectedPhoto, setSelectedPhoto] = useState<File | null>(null);
@@ -96,7 +101,9 @@ export default function PlayerProfile({
       } = await supabase.auth.getUser();
 
       setCurrentUserId(user?.id ?? null);
-      setIsOwnProfile(Boolean(user && data.user_id === user.id));
+      const ownProfile = Boolean(user && data.user_id === user.id);
+      setIsOwnProfile(ownProfile);
+      setOwnerIsPremium(ownProfile ? await isPremium(user?.id) : false);
       setIsScoutViewer(user?.user_metadata?.account_type === "scout");
 
       const [videosResult, photosResult, achievementsResult] = await Promise.all([
@@ -207,9 +214,15 @@ export default function PlayerProfile({
       return;
     }
 
+    const fileError = videoFileError(selectedVideo);
+    if (fileError) {
+      alert(fileError);
+      return;
+    }
+
     setUploading(true);
 
-    const fileName = `${caller.id}/${Date.now()}-${selectedVideo.name}`;
+    const fileName = videoStoragePath(caller.id, selectedVideo.name);
 
     const { error: uploadError } = await supabase.storage
       .from("highlight-videos")
@@ -232,6 +245,10 @@ export default function PlayerProfile({
     });
 
     if (error) {
+      // No video row (e.g. the free-tier limit was reached) - remove the
+      // file just stored so it is not left orphaned in the bucket. Best
+      // effort: the storage DELETE policy allows the caller's own folder.
+      await supabase.storage.from("highlight-videos").remove([fileName]);
       alert(error.message);
     }
 
@@ -332,7 +349,7 @@ export default function PlayerProfile({
   uploadVideo={uploadVideo}
   uploading={uploading}
   videoCount={videos.length}
-  isPremium={false}
+  isPremium={ownerIsPremium}
 /> 
         )}
 

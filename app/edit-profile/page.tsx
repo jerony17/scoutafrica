@@ -5,6 +5,7 @@ import Image from "next/image";
 import { supabase } from "../lib/supabase";
 import { PLAYER_PUBLIC_COLUMNS } from "../lib/playerColumns";
 import { readPlayerPrivate, type PlayerPrivateFields } from "../lib/playerPrivate";
+import { coverPhotoPath, profilePhotoPath } from "../lib/profileImages";
 import { isPlayer } from "../lib/types";
 import type { Player, CareerHistory } from "../lib/types";
 
@@ -234,13 +235,13 @@ export default function EditProfile() {
   async function uploadProfilePhoto() {
     if (!selectedProfilePhoto || !player) return;
 
-    const fileName = `profile-${player.id}-${Date.now()}`;
+    const fileName = profilePhotoPath(player.id);
 
+    // No upsert: the name is always new, so this is a plain insert that
+    // only needs the INSERT storage policy.
     const { error: uploadError } = await supabase.storage
       .from("profile-photos")
-      .upload(fileName, selectedProfilePhoto, {
-        upsert: true,
-      });
+      .upload(fileName, selectedProfilePhoto);
 
     if (uploadError) {
       alert(uploadError.message);
@@ -276,13 +277,12 @@ export default function EditProfile() {
   async function uploadCoverPhoto() {
     if (!selectedCoverPhoto || !player) return;
 
-    const fileName = `cover-${player.id}-${Date.now()}`;
+    const fileName = coverPhotoPath(player.id);
 
+    // No upsert - see uploadProfilePhoto().
     const { error: uploadError } = await supabase.storage
       .from("cover-photos")
-      .upload(fileName, selectedCoverPhoto, {
-        upsert: true,
-      });
+      .upload(fileName, selectedCoverPhoto);
 
     if (uploadError) {
       console.error(uploadError);

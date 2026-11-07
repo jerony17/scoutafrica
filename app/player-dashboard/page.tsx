@@ -227,6 +227,15 @@ const [missingFields, setMissingFields] = useState<string[]>([]);
     Edit Profile
   </Link>
 
+  {player.slug && (
+    <Link
+      href={`/player-profile/${player.slug}`}
+      className="inline-block bg-white border border-gray-200 hover:border-green-600 hover:text-green-700 text-gray-700 px-5 py-2.5 rounded-xl font-semibold"
+    >
+      👁 View My Public Profile
+    </Link>
+  )}
+
   <Link
     href="/messages"
     className="inline-block bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-xl font-semibold"

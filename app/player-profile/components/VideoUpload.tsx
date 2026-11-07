@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { FREE_VIDEO_LIMIT, VIDEO_ACCEPT, videoFileError } from "../../lib/videoUpload";
 
 type Props = {
   setSelectedVideo: (file: File | null) => void;
@@ -7,9 +8,6 @@ type Props = {
   videoCount: number;
   isPremium: boolean;
 };
-
-const FREE_VIDEO_LIMIT = 3;
-const MAX_VIDEO_SIZE_BYTES = 50 * 1024 * 1024;
 
 // Deliberately NOT wrapped in PremiumGuard - free users genuinely have
 // real upload access (up to FREE_VIDEO_LIMIT), matching the RLS policy
@@ -31,11 +29,10 @@ export default function VideoUpload({
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0] || null;
+    const fileError = file ? videoFileError(file) : null;
 
-    if (file && file.size > MAX_VIDEO_SIZE_BYTES) {
-      setSizeError(
-        "This video is too large. The maximum upload size is 250 MB. Please compress your video or upload a shorter highlight reel."
-      );
+    if (fileError) {
+      setSizeError(fileError);
       setSelectedVideo(null);
       e.target.value = "";
       return;
@@ -88,7 +85,7 @@ export default function VideoUpload({
 
           <input
             type="file"
-            accept="video/*"
+            accept={VIDEO_ACCEPT}
             onChange={handleFileChange}
           />
 
