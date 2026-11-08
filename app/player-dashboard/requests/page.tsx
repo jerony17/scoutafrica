@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/app/lib/supabase";
 import { isArrayOf, isContactRequest } from "@/app/lib/types";
 import type { ContactRequest } from "@/app/lib/types";
+import { contactRequestStatusLabel, isContactRequestPending } from "@/app/lib/contactRequests";
 
 export default function PlayerRequests() {
   const [requests, setRequests] = useState<ContactRequest[]>([]);
@@ -76,9 +77,11 @@ export default function PlayerRequests() {
             </p>
 
             <p>
-              <strong>Status:</strong> {request.status}
+              <strong>Status:</strong> {contactRequestStatusLabel(request.status)}
             </p>
 
+            {/* A request can be answered once, while pending (migration 055). */}
+            {isContactRequestPending(request.status) ? (
             <div className="mt-4 flex gap-3">
               <button
   onClick={() => updateRequest(request.id, "accepted")}
@@ -92,8 +95,13 @@ export default function PlayerRequests() {
   className="bg-red-600 text-white px-4 py-2 rounded"
 >
   Reject
-</button>  
+</button>
             </div>
+            ) : (
+              <p className="mt-4 text-sm text-gray-500">
+                You have {request.status === "accepted" ? "accepted" : "rejected"} this request.
+              </p>
+            )}
           </div>
         ))
       )}

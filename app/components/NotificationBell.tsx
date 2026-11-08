@@ -4,6 +4,29 @@ import { useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { isArrayOf, isNotification } from "../lib/types";
 import type { Notification } from "../lib/types";
+import { contactRequestStatusLabel, isContactRequestPending } from "../lib/contactRequests";
+
+// Current status of the contact requests behind "contact_request_new"
+// notifications, by request id. Accept/Decline is shown only while pending.
+async function loadRequestStatuses(requestIds: number[]): Promise<Record<number, string | null>> {
+  if (requestIds.length === 0) return {};
+
+  const { data, error } = await supabase
+    .from("contact_requests")
+    .select("id, status")
+    .in("id", requestIds);
+
+  if (error || !Array.isArray(data)) {
+    console.error("NotificationBell: failed to load request statuses:", error);
+    return {};
+  }
+
+  const statuses: Record<number, string | null> = {};
+  for (const row of data as { id: number; status: string | null }[]) {
+    statuses[row.id] = row.status;
+  }
+  return statuses;
+}
 
 // Rendered globally from the root layout (no shared nav bar exists yet in
 // this project - see the layout.tsx comment). Renders nothing when signed
@@ -14,6 +37,7 @@ export default function NotificationBell() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [open, setOpen] = useState(false);
   const [acting, setActing] = useState<number | null>(null);
+  const [requestStatuses, setRequestStatuses] = useState<Record<number, string | null>>({});
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -51,7 +75,13 @@ export default function NotificationBell() {
         return;
       }
 
-      setNotifications(isArrayOf(data, isNotification) ? data : []);
+      const loaded = isArrayOf(data, isNotification) ? data : [];
+      setNotifications(loaded);
+
+      const requestIds = loaded
+        .filter((n) => n.type === "contact_request_new" && n.related_id !== null)
+        .map((n) => n.related_id as number);
+      setRequestStatuses(await loadRequestStatuses(requestIds));
     }
 
     loadNotifications();
@@ -105,6 +135,17 @@ export default function NotificationBell() {
       .from("contact_requests")
       .update({ status })
       .eq("id", notification.related_id);
+
+    // Show the request's actual status afterwards (if it was already
+    // answered elsewhere, the database leaves it unchanged).
+    const requestId = notification.related_id;
+    const refreshed = await loadRequestStatuses([requestId]);
+    setRequestStatuses((prev) => {
+      const next = { ...prev };
+      if (requestId in refreshed) next[requestId] = refreshed[requestId];
+      else delete next[requestId];
+      return next;
+    });
 
     setActing(null);
 
@@ -174,7 +215,19 @@ export default function NotificationBell() {
                           : ""}
                       </p>
 
-                      {notification.type === "contact_request_new" && (
+                      {notification.type === "contact_request_new" &&
+                        notification.related_id !== null &&
+                        notification.related_id in requestStatuses &&
+                        !isContactRequestPending(requestStatuses[notification.related_id]) && (
+                          <p className="text-xs font-semibold text-gray-500 mt-2">
+                            {contactRequestStatusLabel(requestStatuses[notification.related_id])}
+                          </p>
+                        )}
+
+                      {notification.type === "contact_request_new" &&
+                        notification.related_id !== null &&
+                        notification.related_id in requestStatuses &&
+                        isContactRequestPending(requestStatuses[notification.related_id]) && (
                         <div className="flex gap-2 mt-2">
                           <button
                             onClick={(e) => {
