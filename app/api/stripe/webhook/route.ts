@@ -2,10 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { stripe } from "../../../lib/stripe";
 import { supabaseAdmin } from "../../../lib/supabaseAdmin";
+import {
+  isCheckoutSessionPaid,
+  mapStripeSubscriptionStatus,
+  shouldApplySubscriptionUpdate,
+} from "../../../lib/stripeBilling";
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
-// The status/expiry updates below find the row by stripe_customer_id. A
+// The status/expiry updates below find the row by stripe_subscription_id. A
 // former Stripe customer who later subscribed through PayPal keeps that id
 // on their row, so a late Stripe event (e.g. the old subscription finally
 // being deleted after failed retries) would otherwise overwrite their live
@@ -120,6 +125,16 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     return;
   }
 
+  // Premium only once Stripe reports the payment as taken. Acknowledged
+  // with 200 (no retry): redelivering the same session would not change it.
+  if (!isCheckoutSessionPaid(session.payment_status)) {
+    console.error(
+      `checkout.session.completed ${session.id} for user ${userId} has payment_status ` +
+        `${session.payment_status} - Premium NOT activated.`
+    );
+    return;
+  }
+
   // Retrieve the full subscription to get the price ID, plan/billing
   // cycle, and the real current_period_end - none of these are present
   // on the checkout session object itself.
@@ -222,26 +237,48 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
 
 // === customer.subscription.updated ===
 // Fires on renewals, plan changes, and Stripe's own retry-scheduling
-// changes. Looks the row up by stripe_customer_id, since this event
-// doesn't carry a Supabase user_id directly. Also re-derives plan/
+// changes. Looks the row up by this event's subscription id (set by
+// checkout.session.completed), so an event for an older subscription of
+// the same customer never touches the current one. Also re-derives plan/
 // billing_cycle (not just price_id) so a genuine plan CHANGE (monthly ->
 // annual, for example) is reflected correctly, not just the very first
 // checkout.
+//
+// Status rules live in lib/stripeBilling.ts (unit-tested): only a known
+// Stripe status changes the row, and a late event can never bring a
+// cancelled subscription back to Premium.
 async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
-  const customerId = typeof subscription.customer === "string" ? subscription.customer : null;
-  if (!customerId) return;
+  const status = mapStripeSubscriptionStatus(subscription.status, subscription.cancel_at_period_end);
+  if (!status) {
+    console.warn(
+      `customer.subscription.updated ${subscription.id} has unsupported status ${subscription.status} - record left unchanged.`
+    );
+    return;
+  }
+
+  const { data: row, error: rowError } = await supabaseAdmin
+    .from("subscriptions")
+    .select("id, status, cancelled_at")
+    .eq("stripe_subscription_id", subscription.id)
+    .or(NOT_A_PAYPAL_ROW)
+    .maybeSingle();
+
+  if (rowError) {
+    console.error("Failed to load subscription on customer.subscription.updated:", rowError);
+    throw rowError;
+  }
+  if (!row) return; // not linked yet - checkout.session.completed links it
+
+  if (!shouldApplySubscriptionUpdate(row.status, status)) {
+    console.warn(
+      `customer.subscription.updated ${subscription.id} (${subscription.status}) arrived after cancellation - ignored.`
+    );
+    return;
+  }
 
   const priceId = subscription.items.data[0]?.price.id || null;
   const currentPeriodEnd = new Date(subscription.items.data[0].current_period_end * 1000);
   const { plan, billing_cycle } = derivePlanFields(subscription);
-
-  const status = subscription.cancel_at_period_end
-    ? "renewing" // still premium, but will not renew again
-    : subscription.status === "active"
-      ? "premium"
-      : subscription.status === "past_due"
-        ? "past_due"
-        : "premium";
 
   const { error } = await supabaseAdmin
     .from("subscriptions")
@@ -251,10 +288,10 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
       billing_cycle,
       price_id: priceId,
       expires_at: currentPeriodEnd.toISOString(),
+      ...(status === "cancelled" ? { cancelled_at: row.cancelled_at ?? new Date().toISOString() } : {}),
       updated_at: new Date().toISOString(),
     })
-    .eq("stripe_customer_id", customerId)
-    .or(NOT_A_PAYPAL_ROW);
+    .eq("id", row.id);
 
   if (error) {
     console.error("Failed to update subscription on customer.subscription.updated:", error);
@@ -262,15 +299,23 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
   }
 }
 
+// The Stripe subscription an invoice belongs to (null for a one-off
+// invoice). The invoice handlers below use it to find the exact row, so an
+// invoice of a customer's older subscription never changes a newer one.
+function invoiceSubscriptionId(invoice: Stripe.Invoice): string | null {
+  return typeof invoice.parent?.subscription_details?.subscription === "string"
+    ? invoice.parent.subscription_details.subscription
+    : null;
+}
+
 // === customer.subscription.deleted ===
 // Fires when a subscription is actually cancelled (immediately, or at
 // the end of the period the customer already paid for). Plan/billing
 // cycle are deliberately left as-is here - a cancelled subscription
 // still had a real plan, no need to null it out on cancellation.
+// Matched by subscription id: deleting a customer's older subscription
+// never cancels the newer one.
 async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
-  const customerId = typeof subscription.customer === "string" ? subscription.customer : null;
-  if (!customerId) return;
-
   const { error } = await supabaseAdmin
     .from("subscriptions")
     .update({
@@ -278,7 +323,7 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
       cancelled_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })
-    .eq("stripe_customer_id", customerId)
+    .eq("stripe_subscription_id", subscription.id)
     .or(NOT_A_PAYPAL_ROW);
 
   if (error) {
@@ -299,27 +344,20 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
   const customerId = typeof invoice.customer === "string" ? invoice.customer : null;
   if (!customerId) return;
 
-  const subscriptionId =
-    typeof invoice.parent?.subscription_details?.subscription === "string"
-      ? invoice.parent.subscription_details.subscription
-      : null;
-
-  let currentPeriodEnd: string | undefined;
-  let planFields: { plan: "premium_monthly" | "premium_annual" | null; billing_cycle: "monthly" | "annual" | null } = {
-    plan: null,
-    billing_cycle: null,
-  };
-
-  if (subscriptionId) {
-    const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-    currentPeriodEnd = new Date(subscription.items.data[0].current_period_end * 1000).toISOString();
-    planFields = derivePlanFields(subscription);
+  const subscriptionId = invoiceSubscriptionId(invoice);
+  if (!subscriptionId) {
+    console.warn(`invoice.payment_succeeded ${invoice.id} has no subscription - nothing to update.`);
+    return;
   }
+
+  const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+  const currentPeriodEnd = new Date(subscription.items.data[0].current_period_end * 1000).toISOString();
+  const planFields = derivePlanFields(subscription);
 
   const { data: existing } = await supabaseAdmin
     .from("subscriptions")
     .select("id, currency, payment_provider")
-    .eq("stripe_customer_id", customerId)
+    .eq("stripe_subscription_id", subscriptionId)
     .maybeSingle();
 
   if (existing?.payment_provider === "paypal") {
@@ -338,10 +376,10 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
       status: "premium",
       ...(planFields.plan ? { plan: planFields.plan } : {}),
       ...(planFields.billing_cycle ? { billing_cycle: planFields.billing_cycle } : {}),
-      ...(currentPeriodEnd ? { expires_at: currentPeriodEnd } : {}),
+      expires_at: currentPeriodEnd,
       updated_at: new Date().toISOString(),
     })
-    .eq("stripe_customer_id", customerId)
+    .eq("stripe_subscription_id", subscriptionId)
     .or(NOT_A_PAYPAL_ROW);
 
   if (error) {
@@ -383,8 +421,8 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
 // counted as premium by is_user_premium()) rather than silently kept
 // active during a billing problem. Adjust if you want a grace period.
 async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
-  const customerId = typeof invoice.customer === "string" ? invoice.customer : null;
-  if (!customerId) return;
+  const subscriptionId = invoiceSubscriptionId(invoice);
+  if (!subscriptionId) return; // one-off invoice - no subscription to mark
 
   const { error } = await supabaseAdmin
     .from("subscriptions")
@@ -392,7 +430,7 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
       status: "past_due",
       updated_at: new Date().toISOString(),
     })
-    .eq("stripe_customer_id", customerId)
+    .eq("stripe_subscription_id", subscriptionId)
     .or(NOT_A_PAYPAL_ROW);
 
   if (error) {

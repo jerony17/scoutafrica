@@ -71,10 +71,14 @@ BEGIN
   WHERE m.conversation_id IS NOT NULL
     AND NOT EXISTS (SELECT 1 FROM public.conversations c WHERE c.id = m.conversation_id);
 
+  -- NULL-safe: a missing player, player account, scout, sender or receiver
+  -- makes the pair test NULL, which NOT would silently drop - count it.
   SELECT count(*) INTO bad_pair FROM public.messages m
   JOIN public.conversations c ON c.id = m.conversation_id
   LEFT JOIN public.player p ON p.id = c.player_id
-  WHERE NOT ((m.sender_id = c.scout_id AND m.receiver_id = p.user_id)
+  WHERE p.user_id IS NULL OR c.scout_id IS NULL
+     OR m.sender_id IS NULL OR m.receiver_id IS NULL
+     OR NOT ((m.sender_id = c.scout_id AND m.receiver_id = p.user_id)
           OR (m.sender_id = p.user_id AND m.receiver_id = c.scout_id));
 
   IF bad_fk > 0 THEN
